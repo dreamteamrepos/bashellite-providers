@@ -6,8 +6,9 @@ main() {
   local dep_check_failed="false";
 
   for dep in \
-             ${bin_name} \
+             git \
              wget \
+             pod2man \
              ; do
     which ${dep} &>/dev/null \
     || {
@@ -19,7 +20,20 @@ main() {
     echo "[FAIL] ${bin_name} provider can not be installed until missing dependencies are installed; exiting." \
     && exit 1;
   fi;
-  echo "[INFO] ${bin_name} provider successfully installed.";
+  which ${bin_name} &>/dev/null \
+    || { \
+          echo "[WARN] apt-mirror not installed... installing." \
+          && rm -fr ${providers_tld}/apt-mirror/src/ \
+          && git clone https://github.com/apt-mirror/apt-mirror.git ${providers_tld}/apt-mirror/src/ \
+          && cd ${providers_tld}/apt-mirror/src/ \
+          && make install;
+       };
+  if [[ "$(${bin_dir}/${bin_name} --bad-flag &>/dev/null; echo ${?};)" == "2" ]]; then
+    echo "[INFO] ${bin_name} provider successfully installed.";
+  else
+    echo "[FAIL] ${bin_name} provider NOT successfully installed; exiting.";
+    exit 1;
+  fi
 }
 
 main
