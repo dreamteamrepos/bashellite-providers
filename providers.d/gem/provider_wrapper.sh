@@ -1,0 +1,3 @@
+bashelliteProviderWrapperGem() {
+  :
+}
