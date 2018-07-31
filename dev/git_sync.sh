@@ -3,14 +3,16 @@
 ###
 # This script requires a config file to be specified that contains a listing of 
 # of git repos to download.  Each line can consist of the following 
-# format: <git repo URL>
+# format: <git repo URL>[,<new repo name>]
 # Ex: https://github.com/afcyber-dream/bashellite.git - This will either clone or pull the latest changes from that git repo.
 #     https://github.com/afcyber-dream/bashellite - This is another way of specifying the previous line.
+#     https://github.com/afcyber-dream/bashellite,newbash - This will either clone or pull the latest change.  If cloning, it will put the repo in dir="newbash"
 ###
 # Example conf file:
 ###
 # https://github.com/afcyber-dream/bashellite.git
 # https://github.com/afcyber-dream/bashellite-configs
+# https://github.com/pcseanmckay/bashellite-repodata,bashellite-configs
 ###
 
 ### Program Version:
@@ -243,8 +245,20 @@ Validate_repo_framework() {
 # This function performs the actual sync of the repository
 Sync_repository() {
   for line in $(cat ${config_file}); do
-    git_repo_name="${line##*/}"
-    git_repo_dir_name="${git_repo_name//.git}"
+    unset git_repo_alt_dir_name
+    IFS=$',\n'
+    repo_array=( ${line} )
+    unset IFS
+    repo_array_size=${#repo_array[@]}
+    if [ ${repo_array_size} == 2 ]; then
+      git_repo_alt_dir_name=${repo_array[1]}
+      line=${repo_array[0]}
+      git_repo_dir_name="${git_repo_alt_dir_name}"
+    else
+      git_repo_name="${line##*/}"
+      git_repo_dir_name="${git_repo_name//.git}"
+    fi
+  
     git_repo_url="${line}"
 
     if [[ -d "${mirror_tld}/${repo_name}/${git_repo_dir_name}" ]]; then
@@ -254,7 +268,8 @@ Sync_repository() {
     else
       Info "New repo detected, cloning repo: ${git_repo_url}..."
       cd "${mirror_tld}/${repo_name}"
-      git clone "${git_repo_url}"
+      Info "Cloning to directory: ${git_repo_dir_name}..."
+      git clone "${git_repo_url}" "${git_repo_dir_name}"
     fi
   done
 }
