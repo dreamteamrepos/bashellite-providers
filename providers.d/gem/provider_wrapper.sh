@@ -15,7 +15,11 @@ bashelliteProviderWrapperGem() {
   utilMsg INFO "$(utilTime)" "Downloading gems from gem server"
 
   # Get location of rubygems-mirror gem to use rake
-  local gem_install_dir=$(bundle show rubygems-mirror)
+  #local gem_install_dir=$(bundle show rubygems-mirror)
+  local gem_install_dir=$(ls "/usr/local/share/gems/gems/")
+
+  # use for loop to go through listing to find rubygems-mirror path
+
   if [[ -z ${gem_install_dir} ]]; then
     utilMsg INFO "$(utilTime)" "Downloading gems..."
     cd ${gem_install_dir}
