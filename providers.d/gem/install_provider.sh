@@ -3,7 +3,6 @@
 main() {
 
   local bin_name="gem";
-  local dep_check_failed="false";
 
   for dep in \
              ruby \
@@ -11,14 +10,32 @@ main() {
              ; do
     which ${dep} &>/dev/null \
     || {
-         echo "[FAIL] Can not proceed until ${dep} is installed and accessible in path.";
-         local dep_check_failed="true";
+         echo "[FAIL] Can not proceed until ${dep} is installed and accessible in path." \
+         && exit 1;
        };
   done;
-  if [[ "${dep_check_failed}" == "true" ]]; then
-    echo "[FAIL] ${bin_name} provider can not be installed until missing dependencies are installed; exiting." \
-    && exit 1;
-  fi;
+
+  for gem in \
+      bundler \
+      rake \
+      hoe \
+      rubygems-mirror \
+      net-http-persistent \
+      ; do
+    local gemlist=$(gem list)
+    if [[ "${gemlist}" != *"${gem}"* ]]; then 
+      echo "[WARN] ${gem} gem dependency not found.  Installing..."
+      gem install ${gem}
+      gemlist=$(gem list)
+      if [[ "${gemlist}" == *"${gem}"* ]]; then
+        echo "[INFO] ${gem} installed successfully..."
+      else
+        echo "[FAIL] ${gem} was NOT installed successfully; exiting." \
+        && exit 1;
+      fi
+    fi 
+  done
+
   echo "[INFO] ${bin_name} provider successfully installed.";
 }
 
