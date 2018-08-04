@@ -17,13 +17,13 @@ bashelliteProviderWrapperGit() {
     git_repo_url="${line}"
 
     if [[ -d "${_r_mirror_tld}/${_n_mirror_repo_name}/${git_repo_dir_name}" ]]; then
-      Info "Pulling any updates from repo: ${git_repo_url}..."
+      utilMsg INFO "$(utilTime)" "Pulling any updates from repo: ${git_repo_url}..."
       cd "${_r_mirror_tld}/${_n_mirror_repo_name}/${git_repo_dir_name}"
       git pull
     else
-      Info "New repo detected, cloning repo: ${git_repo_url}..."
+      utilMsg INFO "$(utilTime)" "New repo detected, cloning repo: ${git_repo_url}..."
       cd "${_r_mirror_tld}/${_n_mirror_repo_name}"
-      Info "Cloning to directory: ${git_repo_dir_name}..."
+      utilMsg INFO "$(utilTime)" "Cloning to directory: ${git_repo_dir_name}..."
       git clone "${git_repo_url}" "${git_repo_dir_name}"
     fi
   done
