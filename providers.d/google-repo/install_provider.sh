@@ -17,20 +17,25 @@ main() {
   done
   # If git is installed, ensure google's repo is installed in proper location, and functional.
   # If google's repo is not installed, or broken, blow away the old one, and install a new one.
-  ${providers_tld}/google-repo/exec/repo --help &>/dev/null \
-  || {
-       echo "[WARN] google's repo does NOT appear to be installed, (or it is broken); (re)installing..." \
-       && rm -fr ${providers_tld}/google-repo/exec/* &>/dev/null;
-     };
-  # Ensure bandersnatch installed successfully
-  {
-    ${providers_tld}/bandersnatch/exec/bin/bandersnatch --help &>/dev/null \
-    && echo "[INFO] bandersnatch installed successfully...";
-  } \
-  || {
-       echo "[FAIL] bandersnatch was NOT installed successfully; exiting." \
-       && exit 1;
-     };
+  if [ ! -s "${providers_tld}/google-repo/exec/repo" ]
+  then
+    echo "[WARN] google's repo does NOT appear to be installed, (or it is broken); (re)installing..." \
+    && rm -fr ${providers_tld}/google-repo/exec/* &>/dev/null \
+    && curl https://storage.googleapis.com/git-repo-downloads/repo > ${providers_tld}/google-repo/exec/repo \
+    && chmod ug+x ${providers_tld}/google-repo/exec/repo;
+    
+    # Ensure bandersnatch installed successfully
+    if [ -s "${providers_tld}/google-repo/exec/repo" ]
+    then
+      echo "[INFO] google-repo installed successfully..."
+    else
+      echo "[FAIL] google-repo was NOT installed successfully; exiting." \
+      && exit 1;
+    fi
+  else
+    echo "[INFO] google-repo successfully installed."
+  fi
+
 }
 
 main
