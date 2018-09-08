@@ -1,6 +1,6 @@
 bashelliteProviderWrapper() {
 
-  local temp_config_file="/tmp/bashellite_tmp_${_n_repo_name}_config.conf"
+  local temp_config_file="${HOME}/.bashellite/bashellite_tmp_${_n_repo_name}_config.conf"
   local provider_config_file="${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf"
 
   if [[ ! ${_r_dryrun} ]]; then
