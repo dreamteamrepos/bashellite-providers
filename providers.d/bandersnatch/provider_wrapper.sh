@@ -22,7 +22,7 @@ bashelliteProviderWrapperBandersnatch() {
 
   IFS=$'\n'
   for line in $(cat ${config_file}); do
-    if [[ ${line} = *"directory = "* ]]; then
+    if [[ ${line} =~ ^directory[[:blank:]]*[=][[:blank:]]*[[:alnum:]/]+ ]]; then
       echo "directory = ${_r_mirror_tld}/${_n_repo_name}" >> ${tmp_config_file}
     else
       echo "${line}" >> ${tmp_config_file}
