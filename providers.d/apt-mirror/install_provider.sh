@@ -20,14 +20,15 @@ main() {
     echo "[FAIL] ${bin_name} provider can not be installed until missing dependencies are installed; exiting." \
     && exit 1;
   fi;
-  which ${bin_name} &>/dev/null \
-    || { \
-          echo "[WARN] apt-mirror not installed... installing." \
-          && rm -fr ${providers_tld}/apt-mirror/src/ \
-          && git clone https://github.com/apt-mirror/apt-mirror.git ${providers_tld}/apt-mirror/src/ \
-          && cd ${providers_tld}/apt-mirror/src/ \
-          && make install;
-       };
+
+  if [[ ! -s ${bin_dir}/${bin_name} ]]; then
+    echo "[WARN] apt-mirror not installed... installing." \
+    && rm -fr ${providers_tld}/apt-mirror/src/ \
+    && git clone https://github.com/apt-mirror/apt-mirror.git ${providers_tld}/apt-mirror/src/ \
+    && cd ${providers_tld}/apt-mirror/src/ \
+    && make install;
+  fi
+
   if [[ "$(${bin_dir}/${bin_name} --bad-flag &>/dev/null; echo ${?};)" == "2" ]]; then
     echo "[INFO] ${bin_name} provider successfully installed.";
   else
