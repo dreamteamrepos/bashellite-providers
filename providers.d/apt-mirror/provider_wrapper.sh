@@ -1,6 +1,7 @@
 bashelliteProviderWrapper() {
 
-  local basepath_parameter="$(grep -oP "(?<=(^set base_path[[:space:]]*))[[:alnum:]/]*" ${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf)"
+  local basepath_parameter=$(egrep "^\s*set\s*base_path\s*[[:alnum:]/_-.]*" "${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf")
+  basepath_parameter="${basepath_parameter#*set*base_path}"
   if [[  "${basepath_parameter}" != "${_r_mirror_tld}/${_n_repo_name}" ]]; then
     utilMsg WARN "$(utilTime)" "The \"base_path\" parameter (${basepath_parameter}) in provider.conf does not match mirror location (${_r_mirror_tld}/${_n_repo_name})..."
   fi
@@ -8,17 +9,15 @@ bashelliteProviderWrapper() {
   local config_file="${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf"
   local tmp_config_file="${HOME}/.bashellite/tmp_${_n_repo_name}_provider.conf"
 
-  cat /dev/null > ${tmp_config_file}
+  > ${tmp_config_file}
 
-  IFS=$'\n'
-  for line in $(cat ${config_file}); do
-    if [[ ${line} =~ ^set[[:blank:]]base_path[[:blank:]]+[[:alnum:]/]+ ]]; then
+  while IFS=$'\n' read line; do
+    if [[ "${line}" =~ ^set[[:blank:]]base_path[[:blank:]]+[[:alnum:]/_-.]+ ]]; then
       echo "set base_path         ${_r_mirror_tld}/${_n_repo_name}" >> ${tmp_config_file}
     else
       echo "${line}" >> ${tmp_config_file}
     fi
-  done
-  unset IFS
+  done < ${config_file}
 
   utilMsg INFO "$(utilTime)" "Proceeding with sync of repo (${_n_repo_name})..."
   # If dryrun is true, perform dryrun
