@@ -18,17 +18,21 @@ bashelliteProviderWrapperBandersnatch() {
   local config_file="${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf"
   local tmp_config_file="${HOME}/.bashellite/tmp_${_n_repo_name}_provider.conf"
 
-  cat /dev/null > ${tmp_config_file}
+  > ${tmp_config_file}
 
-  IFS=$'\n'
-  for line in $(cat ${config_file}); do
-    if [[ ${line} =~ ^directory[[:blank:]]*[=][[:blank:]]*[[:alnum:]/]+ ]]; then
-      echo "directory = ${_r_mirror_tld}/${_n_repo_name}" >> ${tmp_config_file}
+  local line_counter=0
+  while IFS=$'\n' read line; do
+    if [[ ${line} =~ ^directory[[:blank:]]*[=][[:blank:]]*[[:alnum:]/_-.]+ ]]; then
+      if [ "${line_counter}" = 0 ]; then
+        echo "directory = ${_r_mirror_tld}/${_n_repo_name}" >> ${tmp_config_file}
+      else
+        utilMsg WARN "$(utilTime)" "Duplicate directory parameter found.  Skipping line..."
+      fi
     else
       echo "${line}" >> ${tmp_config_file}
     fi
-  done
-  unset IFS
+    line_counter=$(($line_counter + 1))
+  done < ${config_file}
 
   utilMsg INFO "$(utilTime)" "Proceeding with sync of repo (${_n_repo_name})..."
   # If dryrun is true, perform dryrun
