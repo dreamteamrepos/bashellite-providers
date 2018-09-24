@@ -25,17 +25,17 @@ bashelliteProviderWrapper() {
     fi
   done < ${config_file}
 
-  utilMsg INFO "$(utilTime)" "Proceeding with sync of repo (${_n_repo_name}) using apt-mirror..."
+  utilMsg INFO "$(utilTime)" "Proceeding with sync of repo (${_n_repo_name}) using ${_n_repo_provider}..."
   # If dryrun is true, perform dryrun
   if [[ ${_r_dryrun} ]]; then
-    utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) using apt-mirror completed without error..."
+    utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) using ${_n_repo_provider} completed without error..."
   # If dryrun is not true, perform real run
   else
     apt-mirror ${tmp_config_file};
     if [[ "${?}" == "0" ]]; then
-      utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) using apt-mirror completed without error...";
+      utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) using ${_n_repo_provider} completed without error...";
     else
-      utilMsg WARN "$(utilTime)" "Sync of repo (${_n_repo_name}) using apt-mirror did NOT complete without error...";
+      utilMsg WARN "$(utilTime)" "Sync of repo (${_n_repo_name}) using ${_n_repo_provider} did NOT complete without error...";
     fi
   fi
 
