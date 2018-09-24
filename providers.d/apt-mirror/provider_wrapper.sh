@@ -19,23 +19,23 @@ bashelliteProviderWrapper() {
       else
         utilMsg WARN "$(utilTime)" "Duplicate base_path parameter found.  Skipping line..."
       fi
+      line_counter=$(($line_counter + 1))
     else
       echo "${line}" >> ${tmp_config_file}
     fi
-    line_counter=$(($line_counter + 1))
   done < ${config_file}
 
-  utilMsg INFO "$(utilTime)" "Proceeding with sync of repo (${_n_repo_name})..."
+  utilMsg INFO "$(utilTime)" "Proceeding with sync of repo (${_n_repo_name}) using apt-mirror..."
   # If dryrun is true, perform dryrun
   if [[ ${_r_dryrun} ]]; then
-    utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) completed without error..."
+    utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) using apt-mirror completed without error..."
   # If dryrun is not true, perform real run
   else
     apt-mirror ${tmp_config_file};
     if [[ "${?}" == "0" ]]; then
-      utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) completed without error...";
+      utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) using apt-mirror completed without error...";
     else
-      utilMsg WARN "$(utilTime)" "Sync of repo (${_n_repo_name}) did NOT complete without error...";
+      utilMsg WARN "$(utilTime)" "Sync of repo (${_n_repo_name}) using apt-mirror did NOT complete without error...";
     fi
   fi
 
