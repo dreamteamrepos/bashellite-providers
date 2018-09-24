@@ -28,23 +28,23 @@ bashelliteProviderWrapperBandersnatch() {
       else
         utilMsg WARN "$(utilTime)" "Duplicate directory parameter found.  Skipping line..."
       fi
+      line_counter=$(($line_counter + 1))
     else
       echo "${line}" >> ${tmp_config_file}
     fi
-    line_counter=$(($line_counter + 1))
   done < ${config_file}
 
-  utilMsg INFO "$(utilTime)" "Proceeding with sync of repo (${_n_repo_name})..."
+  utilMsg INFO "$(utilTime)" "Proceeding with sync of repo (${_n_repo_name}) using ${_n_repo_provider}..."
   # If dryrun is true, perform dryrun
   if [[ ${_r_dryrun} ]]; then
-    utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) completed without error..."
+    utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) using ${_n_repo_provider} completed without error..."
   # If dryrun is not true, perform real run
   else
     ${_r_providers_tld}/bandersnatch/exec/bin/bandersnatch -c "${tmp_config_file}" mirror;
     if [[ "${?}" == "0" ]]; then
-      utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) completed without error...";
+      utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) using ${_n_repo_provider} completed without error...";
     else
-      utilMsg WARN "$(utilTime)" "Sync of repo (${_n_repo_name}) did NOT complete without error...";
+      utilMsg WARN "$(utilTime)" "Sync of repo (${_n_repo_name}) using ${_n_repo_provider} did NOT complete without error...";
     fi
   fi
 
