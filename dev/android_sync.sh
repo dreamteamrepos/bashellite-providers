@@ -1,7 +1,8 @@
 #!/bin/bash
 
 mirror_loc=$1
-repo_url="https://android.googlesource.com/mirror/manifest"
+#repo_url="https://android.googlesource.com/mirror/manifest"
+repo_url="https://android.googlesource.com/platform/manifest"
 
 mkdir -p ${HOME}/bin
 
