@@ -15,6 +15,11 @@ bashelliteProviderWrapperBandersnatch() {
     utilMsg WARN "$(utilTime)" "The \"directory\" parameter (${directory_parameter}) in provider.conf does not match mirror location (${_r_mirror_tld}/${_n_repo_name})..."
   fi
 
+  if [ ! -d ${HOME}/.bashellite ]; then
+    utilMsg WARN "$(utilTime)" "The temporary directory (${HOME}/.bashellite) doesn't exist.  Creating..."
+    mkdir -p ${HOME}/.bashellite
+  fi
+
   local config_file="${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf"
   local tmp_config_file="${HOME}/.bashellite/tmp_${_n_repo_name}_provider.conf"
 
