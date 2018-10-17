@@ -1,4 +1,5 @@
 bashelliteProviderWrapperGem() {
+  local ruby_ver="2.5.1"
   local mirror_file="${HOME}/.gem/.mirrorrc"
   utilMsg INFO "$(utilTime)" "Copying config contents to ${HOME}/.gem/.mirrorrc"
   if [[ ! -d "${HOME}/.gem" ]]; then
@@ -16,7 +17,7 @@ bashelliteProviderWrapperGem() {
   # Check for installed dependent gems required for mirroring
 
   utilMsg INFO "$(utilTime)" "Checking for required gems for mirroring..."
-  local gem_bin=${HOME}/.rubies/ruby-2.5.1/bin/gem
+  local gem_bin=${HOME}/.rubies/ruby-${ruby_ver}/bin/gem
   local gemlist=$(${gem_bin} list)
   for gem in \
       hoe \
