@@ -30,11 +30,12 @@ main() {
     # Install ruby to /home/bashellite/.rubies
     local ruby_installer="${providers_tld}/gem/src/ruby-install/bin/ruby-install"
     local ruby_src_dir="${providers_tld}/gem/src/ruby_src"
-    local ruby_install_dir="/home/bashellite/.rubies/ruby-${ruby_ver}"
+    local ruby_install_dir="/home/bashellite/.rubies"
+    local ruby_dir="${ruby_install_dir}/ruby-${ruby_ver}"
     
-    ${ruby_installer} -i ${ruby_install_dir} -s ${ruby_src_dir} ruby ${ruby_ver}
-    chown -R bashellite:bashellite /home/bashellite/.rubies
-    chmod -R 0700 /home/bashellite/.rubies
+    ${ruby_installer} -i ${ruby_dir} -s ${ruby_src_dir} ruby ${ruby_ver}
+    chown -R bashellite:bashellite ${ruby_install_dir}
+    chmod -R 0700 ${ruby_install_dir}
 
     # Check installation of ruby
     if [[ -s "${ruby_bin}" && $(${ruby_bin} --version | grep -o "ruby ${ruby_ver}") == "ruby ${ruby_ver}" ]]; then
