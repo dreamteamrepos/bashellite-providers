@@ -4,6 +4,7 @@ RUN yum update -y && \
                    https://rhel7.iuscommunity.org/ius-release.rpm && \
     yum update -y && \
     yum install -y bzip2 \
+                   createrepo \
                    git2u \
                    make \
                    python2-pip \
