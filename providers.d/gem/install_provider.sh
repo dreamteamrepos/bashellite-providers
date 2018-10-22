@@ -23,7 +23,7 @@ main() {
   else
     echo "[WARN] ${bin_name} does NOT appear to be installed, (or it is broken); (re)installing..."
     # Download ruby-install
-    if [ ! -d ${providers_tld/gem/src/ruby-install} ]; then
+    if [ ! -d ${providers_tld}/gem/src/ruby-install ]; then
       git clone https://github.com/pcseanmckay/ruby-install ${providers_tld}/gem/src/ruby-install
     fi
     
