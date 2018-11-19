@@ -27,7 +27,7 @@ bashelliteProviderWrapperBandersnatch() {
 
   local line_counter=0
   while IFS=$'\n' read line; do
-    if [[ ${line} =~ ^directory[[:blank:]]*[=][[:blank:]]*[[:alnum:]/_-.]+ ]]; then
+    if [[ ${line} =~ ^directory[[:blank:]]*[=][[:blank:]]*[[:alnum:]/_.-]+ ]]; then
       if [ "${line_counter}" = 0 ]; then
         echo "directory = ${_r_mirror_tld}/${_n_repo_name}" >> ${tmp_config_file}
       else
