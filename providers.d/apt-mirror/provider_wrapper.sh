@@ -1,6 +1,6 @@
 bashelliteProviderWrapper() {
 
-  local basepath_parameter=$(egrep "^\s*set\s*base_path\s*[[:alnum:]/_-.]*" "${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf")
+  local basepath_parameter=$(egrep "^\s*set\s*base_path\s*[[:alnum:]/_.-]*" "${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf")
   basepath_parameter="${basepath_parameter#*set*base_path}"
   if [[  "${basepath_parameter}" != "${_r_mirror_tld}/${_n_repo_name}" ]]; then
     utilMsg WARN "$(utilTime)" "The \"base_path\" parameter ("${basepath_parameter}") in provider.conf does not match mirror location (${_r_mirror_tld}/${_n_repo_name})..."
