@@ -247,6 +247,16 @@ Sync_repository() {
   image_name_array=()
 
   for line in $(cat ${config_file}); do
+    # Separating out any username in the repo, otherwise default to a username of 'library'
+    IFS=$'/\n'
+    repo_line_array=( ${line} )
+    unset IFS
+    repo_username="library"
+    if [ ${#repo_line_array[@]} == 2 ]; then
+      repo_username=${repo_line_array[0]}
+      orig_line=${line}
+      line=${repo_line_array[1]}
+    fi
     # Check to see if tags are listed
     tag_index=0
     tag_index=`expr index "${line}" ':'`
@@ -255,24 +265,24 @@ Sync_repository() {
     docker_registry_url="${site_name}"    
     if [[ ${tag_index} == 0 ]]; then
       # No tags found, downloading latest tag for image
-      Info "Pulling latest tag for image: ${line}"
-      Info "Command: docker pull ${docker_registry_url}/${line}:latest"
+      Info "Pulling latest tag for image: ${repo_username}/${line}"
+      Info "Command: docker pull ${docker_registry_url}/${repo_username}/${line}:latest"
       if [[ ${dryrun} == "" ]]; then
         # Only pull if not a dry run
-        docker pull ${docker_registry_url}/${line}:latest
+        docker pull ${docker_registry_url}/${repo_username}/${line}:latest
       fi
 
       # Add image to array for later removal
-      image_name_array+=( "${line}:latest" )
+      image_name_array+=( "${repo_username}/${line}:latest" )
 
-      Info "Saving latest tag for image: ${line}"
-      Info "Command: docker save -o ${mirror_tld}/${mirror_repo_name}/${line}-latest.tar ${line}:latest"
+      Info "Saving latest tag for image: ${repo_username}/${line}"
+      Info "Command: docker save -o ${mirror_tld}/${mirror_repo_name}/${repo_username}-${line}-latest.tar ${repo_username}/${line}:latest"
       if [[ ${dryrun} == "" ]]; then
         # Only save if not a dry run
-        docker save -o ${mirror_tld}/${mirror_repo_name}/${line}-latest.tar ${line}:latest
+        docker save -o ${mirror_tld}/${mirror_repo_name}/${repo_username}-${line}-latest.tar ${repo_username}/${line}:latest
       fi
     elif [[ ${tag_index} == 1 || ${tags_found} == "" ]]; then
-      Warn "Invalid image/tag format found: ${line}, skipping..."
+      Warn "Invalid image/tag format found: ${orig_line}, skipping..."
     else
       # Tags found
       Info "Tags found"
@@ -282,21 +292,21 @@ Sync_repository() {
       image_name=""
       image_name="${line:0:${tag_index} - 1}"
       for each_tag in ${tags_array[@]}; do
-        Info "Pulling tag: ${each_tag} for image: ${image_name}"
-        Info "Command: docker pull ${docker_registry_url}/${image_name}:${each_tag}"
+        Info "Pulling tag: ${each_tag} for image: ${repo_username}/${image_name}"
+        Info "Command: docker pull ${docker_registry_url}/${repo_username}/${image_name}:${each_tag}"
         if [[ ${dryrun} == "" ]]; then
           #only pull if not a dry run
-          docker pull ${docker_registry_url}/${image_name}:${each_tag}
+          docker pull ${docker_registry_url}/${repo_username}/${image_name}:${each_tag}
         fi
 
         # Add image to array for later removal
-        image_name_array+=( "${image_name}:${each_tag}" )
+        image_name_array+=( "${repo_username}/${image_name}:${each_tag}" )
 
-        Info "Saving tag: ${each_tag} for image: ${image_name}"
-        Info "Command: docker save -o ${mirror_tld}/${mirror_repo_name}/${image_name}-${each_tag}.tar ${image_name}:${each_tag}"
+        Info "Saving tag: ${each_tag} for image: ${repo_username}/${image_name}"
+        Info "Command: docker save -o ${mirror_tld}/${mirror_repo_name}/${repo_username}-${image_name}-${each_tag}.tar ${repo_username}/${image_name}:${each_tag}"
         if [[ ${dryrun} == "" ]]; then
           # Only save if not a dry run
-          docker save -o ${mirror_tld}/${mirror_repo_name}/${image_name}-${each_tag}.tar ${image_name}:${each_tag}
+          docker save -o ${mirror_tld}/${mirror_repo_name}/${repo_username}-${image_name}-${each_tag}.tar ${repo_username}/${image_name}:${each_tag}
         fi
       done
     fi
