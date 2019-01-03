@@ -42,7 +42,6 @@ utilDeps() {
 
 }
 
-
 utilGNU() {
 
   # Sanitizes input to a set of reasonable filename characters
@@ -105,7 +104,6 @@ utilTime() {
   fi
 
 }
-
 
 utilMsg() {
 
@@ -208,7 +206,7 @@ utilMsg() {
 
   # Set vars based on passed in vars
   config_file="test.conf"
-  podman_registry_url="index.docker.io"
+  podman_registry_url="docker.io"
   mirror_tld="/home/chandler/test"
   mirror_repo_name="podman"
 
@@ -259,21 +257,23 @@ utilMsg() {
 
         # Cycle through each tag, download, and save
         for each_tag in ${tags_array[@]}; do
+            repo_image="${podman_registry_url}/${repo_username}/${image_name}:${each_tag}"
             utilMsg INFO "$(utilTime)" "Pulling tag: ${each_tag} for image: ${repo_username}/${image_name}"
-            utilMsg INFO "$(utilTime)" "Command: podman pull ${podman_registry_url}/${repo_username}/${image_name}:${each_tag}"
+            utilMsg INFO "$(utilTime)" "Command: podman pull ${repo_image}"
             if [[ ${dryrun} == "" ]]; then
                 #only pull if not a dry run
-                podman pull ${podman_registry_url}/${repo_username}/${image_name}:${each_tag}
+                podman pull ${repo_image}
             fi
 
-            # Add image to array for later removal
-            image_name_array+=( "${repo_username}/${image_name}:${each_tag}" )
-
-            utilMsg INFO "$(utilTime)" "Saving tag: ${each_tag} for image: ${repo_username}/${image_name}"
-            utilMsg INFO "$(utilTime)" "Command: podman save -o ${mirror_tld}/${mirror_repo_name}/${repo_username}-${image_name}-${each_tag}.tar ${repo_username}/${image_name}:${each_tag}"
+#            # Add image to array for later removal
+#            image_name_array+=( "${repo_username}/${image_name}:${each_tag}" )
+            save_loc="${mirror_tld}/${mirror_repo_name}"
+            image_file_name="${repo_username}-${image_name}-${each_tag}.tar"
+            utilMsg INFO "$(utilTime)" "Saving tag: ${each_tag} for image: ${podman_registry_url}/${repo_username}/${image_name}"
+            utilMsg INFO "$(utilTime)" "Command: podman save -o ${save_loc}/${image_file_name} ${repo_image}"
             if [[ ${dryrun} == "" ]]; then
                 # Only save if not a dry run
-                podman save -o ${mirror_tld}/${mirror_repo_name}/${repo_username}-${image_name}-${each_tag}.tar ${repo_username}/${image_name}:${each_tag}
+                podman save -o ${save_loc}/${image_file_name} ${repo_image}
             fi
         done
     fi
