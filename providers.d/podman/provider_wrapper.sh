@@ -35,11 +35,6 @@ bashelliteProviderWrapperPodman() {
             utilMsg INFO "$(utilTime)" "Tags not found, using 'latest' tag"
             tags_found="latest"
             image_name=${line}
-
-            # podman inspect gns3/webterm | jq .[0].Id
-            # tar -x -f <tar file> --directory=<directory to place manifest file> manifest.json
-            # cat manifest.json | jq .[0].Config | grep -oP "[[:alnum:]]+(?=\.json)"
-
         else
             # Tags found
             utilMsg INFO "$(utilTime)" "Tags found"
@@ -53,21 +48,39 @@ bashelliteProviderWrapperPodman() {
 
         # Cycle through each tag, download, and save
         for each_tag in ${tags_array[@]}; do
+            repo_image="${podman_registry_url}/${repo_username}/${image_name}:${each_tag}"
             utilMsg INFO "$(utilTime)" "Pulling tag: ${each_tag} for image: ${repo_username}/${image_name}"
-            utilMsg INFO "$(utilTime)" "Command: podman pull ${podman_registry_url}/${repo_username}/${image_name}:${each_tag}"
+            utilMsg INFO "$(utilTime)" "Command: podman pull ${repo_image}"
             if [[ ${dryrun} == "" ]]; then
                 #only pull if not a dry run
-                podman pull ${podman_registry_url}/${repo_username}/${image_name}:${each_tag}
+                podman pull ${repo_image}
             fi
 
-            # Add image to array for later removal
-            image_name_array+=( "${repo_username}/${image_name}:${each_tag}" )
-
-            utilMsg INFO "$(utilTime)" "Saving tag: ${each_tag} for image: ${repo_username}/${image_name}"
-            utilMsg INFO "$(utilTime)" "Command: podman save -o ${mirror_tld}/${mirror_repo_name}/${repo_username}-${image_name}-${each_tag}.tar ${repo_username}/${image_name}:${each_tag}"
+#            # Add image to array for later removal
+#            image_name_array+=( "${repo_username}/${image_name}:${each_tag}" )
+            save_loc="${mirror_tld}/${mirror_repo_name}"
+            image_file_name="${repo_username}-${image_name}-${each_tag}.tar"
+            utilMsg INFO "$(utilTime)" "Saving tag: ${each_tag} for image: ${podman_registry_url}/${repo_username}/${image_name}"
+            utilMsg INFO "$(utilTime)" "Command: podman save -o ${save_loc}/${image_file_name} ${repo_image}"
             if [[ ${dryrun} == "" ]]; then
                 # Only save if not a dry run
-                podman save -o ${mirror_tld}/${mirror_repo_name}/${repo_username}-${image_name}-${each_tag}.tar ${repo_username}/${image_name}:${each_tag}
+                save_file=1
+                # Check if file already exists, if it does, check to see if it is current
+                if [ -s ${save_loc}/${image_file_name} ]; then
+                  # Extract the manifest.json file from the archive to get the Config value
+                  tar -x -f ${save_loc}/${image_file_name} --directory=${save_loc} manifest.json
+                  file_id=$(cat ${save_loc}/manifest.json | jq .[0].Config | grep -oP "[[:alnum:]]+(?=\.json)")
+                  # Next grab the image ID value from podman
+                  image_id=$(podman inspect ${repo_image} | jq .[0].Id | grep -oP "(?<=\")[[:alnum:]]+(?=\")")
+                  # Next compare file_id to image_id, if same skip
+                  if [[ ${file_id} == ${image_id} ]]; then
+                    utilMsg INFO "$(utilTime)" "Saved image already found, skipping..."
+                    save_file=0
+                  fi
+                fi
+                if [[ ${save_file} == 1 ]]; then
+                  podman save -o ${save_loc}/${image_file_name} ${repo_image}
+                fi
             fi
         done
     fi
