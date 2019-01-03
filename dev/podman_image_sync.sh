@@ -239,16 +239,15 @@ utilMsg() {
             utilMsg INFO "$(utilTime)" "Tags not found, using 'latest' tag"
             tags_found="latest"
             image_name=${line}
-
-            # podman inspect gns3/webterm | jq .[0].Id
-            # tar -x -f <tar file> --directory=<directory to place manifest file> manifest.json
-            # cat manifest.json | jq .[0].Config | grep -oP "[[:alnum:]]+(?=\.json)"
-
         else
             # Tags found
             utilMsg INFO "$(utilTime)" "Tags found"
             image_name="${line:0:${tag_index} - 1}"
         fi
+
+        # podman inspect gns3/webterm | jq .[0].Id | grep -oP "(?<=\")[[:alnum:]]+(?=\")"
+        # tar -x -f <tar file> --directory=<directory to place manifest file> manifest.json
+        # cat manifest.json | jq .[0].Config | grep -oP "[[:alnum:]]+(?=\.json)"
 
         # Create tags array to cycle through
         IFS=$',\n'
@@ -273,7 +272,23 @@ utilMsg() {
             utilMsg INFO "$(utilTime)" "Command: podman save -o ${save_loc}/${image_file_name} ${repo_image}"
             if [[ ${dryrun} == "" ]]; then
                 # Only save if not a dry run
-                podman save -o ${save_loc}/${image_file_name} ${repo_image}
+                save_file=1
+                # Check if file already exists, if it does, check to see if it is current
+                if [ -s ${save_loc}/${image_file_name} ]; then
+                  # Extract the manifest.json file from the archive to get the Config value
+                  tar -x -f ${save_loc}/${image_file_name} --directory=${save_loc} manifest.json
+                  file_id=$(cat ${save_loc}/manifest.json | jq .[0].Config | grep -oP "[[:alnum:]]+(?=\.json)")
+                  # Next grab the image ID value from podman
+                  image_id=$(podman inspect ${repo_image} | jq .[0].Id | grep -oP "(?<=\")[[:alnum:]]+(?=\")")
+                  # Next compare file_id to image_id, if same skip
+                  if [[ ${file_id} == ${image_id} ]]; then
+                    utilMsg INFO "$(utilTime)" "Saved image already found, skipping..."
+                    save_file=0
+                  fi
+                fi
+                if [[ ${save_file} == 1 ]]; then
+                  podman save -o ${save_loc}/${image_file_name} ${repo_image}
+                fi
             fi
         done
     fi
