@@ -204,11 +204,78 @@ utilMsg() {
   
 }
 
+# This function prints usage messaging to STDOUT when invoked.
+Usage() {
+  echo
+  echo "Usage: $(basename ${0}) v${script_version}"
+  echo "       [-m mirror_top-level_directory]"
+  echo "       [-h]"
+  echo "       [-d]"
+  echo "       [-r repository_name]"
+  echo
+  echo
+  echo "       Required Parameter(s):"
+  echo "       -m:  Sets a temporary disk mirror top-level directory."
+  echo "            Only absolute (full) paths are accepted!"
+  echo "       -r:  The repo name to sync."
+  echo "       -c:  The config file that has the filter of images to download"
+  echo "       Optional Parameter(s):"
+  echo "       -h:  Prints this usage message."
+  echo "       -d:  Dry-run mode. Pulls down a listing of the files and"
+  echo "            directories it would download, and then exits."
+  echo "       -s:  An optional site name to pull images from.  Default is: docker.io"
+}
+
+# This function parses the parameters passed over the command-line by the user.
+Parse_parameters() {
+  if [[ "${#}" = "0" ]]; then
+    Usage;
+    utilMsg FAIL "$(utilTime)" "${0} has mandatory parameters; review usage message and try again.";
+  fi
+
+  # Bash-builtin getopts is used to perform parsing, so no long options are used.
+  while getopts ":m:r:c:s:hd" passed_parameter; do
+   case "${passed_parameter}" in
+      m)
+        mirror_tld="${OPTARG}";
+        ;;
+      r)
+        # Sanitizes the directory name of spaces or any other undesired characters.
+	      mirror_repo_name="${OPTARG//[^a-zA-Z1-9_-]}";
+	      ;;
+      d)
+        dryrun=true;
+        ;;
+      c)
+        config_file="${OPTARG}";
+        ;;
+      s)
+        podman_registry_url="${OPTARG}";
+        ;;
+      h)
+        Usage;
+        exit 0;
+        ;;
+      *)
+        Usage;
+        utilMsg FAIL "$(utilTime)" "Invalid option passed to \"$(basename ${0})\"; exiting. See Usage below.";
+        ;;
+    esac
+  done
+  shift $((OPTIND-1));
+}
+
   # Set vars based on passed in vars
   config_file="test.conf"
   podman_registry_url="docker.io"
   mirror_tld="/home/chandler/test"
   mirror_repo_name="podman"
+
+  Parse_parameters ${@}
+
+#if [[ ${?} == 0 ]]; then
+
+if [[ $(Parse_parameters ${@}) == 0 ]]; then
 
   image_name_array=()
 
@@ -302,4 +369,6 @@ utilMsg() {
 #      podman rmi ${line}
 #    fi
 #  done
-  unset podman_registry_url;
+  unset podman_registry_url;#!/bin/bash
+fi
+
