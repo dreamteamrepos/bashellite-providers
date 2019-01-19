@@ -17,3 +17,11 @@ For the installer script for this provider, please see `install_provider.sh`.
 For the wrapper function(s) that actually calls the provider's executable, please see `provider_wrapper.sh`.
 
 For general information about providers, please see the main `README.md` for this entire repository.
+
+Note: In order to install the podman package, the rhel-7-server-extras-rpms repo must be enabled.
+
+Note: In order for podman to be used by non-root users, the following command needs to be performed: sysctl user.max_user_namespaces=<some number greater than 0, suggested: 15000>
+
+Note: In order for the bashellite user (or any non root user) to use podman, subgids and subuids must be defined for the user.  Examples for bashellite are given below:
+-> /etc/subuid: bashellite:100000:65535
+-> /etc/subgid: bashellite:100000:65535

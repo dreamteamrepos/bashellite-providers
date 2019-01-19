@@ -9,3 +9,8 @@ Note: not all providers are installed this way, so this directory may be empty.
 This directory contains 2 src rpms that from Fedora 29 that are required to be rebuilt on a RHEL 7 system.  Shadow-utils requires libtool v 2.4.6.  Libtool must be compiled with the version of gcc used by RHEL 7 to work properly for installing the Fedora 29 version of shadow-utils under RHEL 7.  Fedora 29 shadow-utils is required by podman under RHEL 7 to allow non-root users (bashellite user) to use podman.
 
 Note: Before compiling libtool under RHEL 7, the libtool src rpm spec file must be modified to change the line: Requires: gcc(major) = %{gcc_major} to Requires: gcc for the compiled libtool binary rpm to install correctly.
+
+Note: In order to compile libtool src rpm, texinfo and help2man packages must be installed.  Help2man package requires the rhel-7-server-optional-rpms repo to be enabled.
+
+Note: In order to compile shadow-utils, the compiled libtool must be installed as well as the following packages: libselinux-devel, audit-libs-devel >= 1.6.5, libsemanage-devel, libacl-devel,
+libattr-devel, gnome-doc-utils, docbook-style-xsl, docbook-dtds. 
