@@ -57,6 +57,20 @@ main() {
     sysctl -q user.max_user_namespaces=15000
   fi
 
+  # Need to add parsing the /etc/subuid and /etc/subgid files looking for the bashellite user to update
+  # If bashellite user is not in the files, need to add with a start range higher than what is already present
+
+  subuid_file="/etc/subuid"
+  subgid_file="/etc/subgid"
+
+  for file in ${subuid_file} ${subgid_file}; do
+    echo "[INFO] Processing file: ${file}"
+    while IFS=$'\n' read line; do
+      
+    done < ${file}
+  done
+
+
   echo "[INFO] ${bin_name} provider successfully installed.";
 }
 
