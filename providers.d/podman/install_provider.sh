@@ -5,6 +5,7 @@ main() {
   local bin_name="podman";
   local dep_check_failed="false";
   local exec_dir="${providers_tld}/${bin_name}/exec"
+  local username="bashellite"
 
   for dep in \
              ${bin_name} \
@@ -59,17 +60,45 @@ main() {
 
   # Need to add parsing the /etc/subuid and /etc/subgid files looking for the bashellite user to update
   # If bashellite user is not in the files, need to add with a start range higher than what is already present
+  # Format of lines in each file:
+  # <username>:<subid start value>:<subid range value>
 
-  subuid_file="/etc/subuid"
-  subgid_file="/etc/subgid"
+  local subuid_file="/etc/subuid"
+  local subgid_file="/etc/subgid"
 
   for file in ${subuid_file} ${subgid_file}; do
     echo "[INFO] Processing file: ${file}"
-    while IFS=$'\n' read line; do
-      
+    local max_userspace_num=0
+    local user_found="false"
+    while read line; do
+      # Need to break up each line using ':' as a delimiter
+      IFS=$':\n'
+      local line_array=( ${line} )
+      unset IFS
+      # Check to see if each line has three values in the line_array, if so, continue processing the line
+      if [[ ${#line_array[@]} == 3 ]]; then
+        # Check if current user is already found, if so, no need to continue processing file, break from while loop
+        if [[ ${line_array[0]} == ${username} ]]; then
+          # Set user_found == "true"
+          user_found="true"
+          break
+        fi
+        # Process line recording max_userspace_num = subid start value + subid range value
+        if [[ ${line_array[1]} > ${max_userspace_num} ]]; then
+          max_userspace_num=$((${line_array[1]} + ${line_array[2]}))
+        fi
+      fi
     done < ${file}
+    # Here we check if user is not found, if not, we add the user to the end of the file 
+    # with a subid start value == max_userspace_num and a subid range value == 65535 
+    if [[ ${user_found} == "false" ]]; then
+      if [[ ${max_userspace_num} > 0 ]]; then
+        echo "${username}:${max_userspace_num}:65536" >> ${file}
+      else
+        echo "${username}:100000:65536" >> ${file}
+      fi
+    fi
   done
-
 
   echo "[INFO] ${bin_name} provider successfully installed.";
 }
