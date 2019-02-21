@@ -36,8 +36,10 @@ main() {
     rpm -qa | grep -oP ${package} &>/dev/null \
     || {
       # Package not found, attempting to install
+      local return_status
       yum install -y ${exec_dir}/${package}.rpm
-      if [[ $? ]]; then
+      return_status=$?
+      if [[ ${return_status} != 0 ]]; then
         echo "[FAIL] ${bin_name} provider dependent package: ${package} failed to install"
         local dep_install_status="false"
       fi
