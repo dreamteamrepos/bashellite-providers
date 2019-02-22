@@ -72,6 +72,8 @@ bashelliteProviderWrapperPodman() {
                   file_id=$(cat ${save_loc}/manifest.json | jq .[0].Config | grep -oP "[[:alnum:]]+(?=\.json)")
                   # Next grab the image ID value from podman
                   image_id=$(podman inspect ${repo_image} | jq .[0].Id | grep -oP "(?<=\")[[:alnum:]]+(?=\")")
+                  # Remove temporary manifest.json
+                  rm -f ${save_loc}/manifest.json
                   # Next compare file_id to image_id, if same skip
                   if [[ ${file_id} == ${image_id} ]]; then
                     utilMsg INFO "$(utilTime)" "Saved image already found, skipping..."
