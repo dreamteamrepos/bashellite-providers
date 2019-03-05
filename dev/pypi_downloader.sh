@@ -259,7 +259,7 @@ Sync_repo() {
       local package_url=`echo ${line} | grep -oP "(?<=href\=\").*(?=\"\>)"`
       
       # Need to get the SHA256 value to compare to the file, to see if file already exists
-      local package_sha256=`echo ${line} | grep -oP "(?<=sha256\=)[[:alnum:]]*(?=\"\>)"`
+      local package_sha256=`echo ${line} | grep -oP "(?<=sha256\=)[[:alnum:]]*(?=\")"`
       
       # Need to get the package file name
       local package_file_name=`echo ${line} | grep -oP "(?<=\"\>).*(?=\</a\>\<br/\>)"`
