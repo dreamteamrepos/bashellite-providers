@@ -104,14 +104,14 @@ Usage() {
   echo "Usage: $(basename ${0}) v${script_version}"
   echo "       [-m mirror_top-level_directory]"
   echo "       [-h]"
-  echo "       [-p package_name]"
-  #echo "       [-c]"
+  echo "       [-r repository_name]"
+  echo "       [-c]"
   echo
   echo "       Required Parameter(s):"
   echo "       -m:  Sets a temporary disk mirror top-level directory."
   echo "            Only absolute (full) paths are accepted!"
-  echo "       -p:  The package name to sync."
-  #echo "       -c:  The config file to use."
+  echo "       -r:  The repository name to sync."
+  echo "       -c:  The config file with list of packages to sync."
   echo "       Optional Parameter(s):"
   echo "       -h:  Prints this usage message."
 }
@@ -121,21 +121,26 @@ Parse_parameters() {
 
   # This section unsets some variables, just in case.
   unset mirror_tld;
-  unset package_name;
+  #unset package_name;
   unset dryrun;
+  unset repo_name;
+  unset config_file;
 
   mirror_tld=$(pwd)
 
   # Bash-builtin getopts is used to perform parsing, so no long options are used.
-  while getopts ":m:p:h" passed_parameter; do
+  while getopts ":m:r:c:h" passed_parameter; do
    case "${passed_parameter}" in
       m)
         mirror_tld="${OPTARG}";
         ;;
-      p)
-        # Sanitizes the directory name of spaces or any other undesired characters.
-	      package_name="${OPTARG//[^a-zA-Z1-9_-]}";
-	      ;;
+      r)
+       # Sanitizes the directory name of spaces or any other undesired characters.
+	      repo_name="${OPTARG//[^a-zA-Z1-9_-]}";
+        ;;
+      c)
+        config_file="${OPTARG}";
+        ;;
       h)
         Usage;
         exit 0;
@@ -192,35 +197,29 @@ Validate_variables() {
   fi
 }
 
-# This function creates/validates the file/directory framework for the requested package.
-Validate_package_framework() {
-  if [[ -n "${package_name}" ]]; then
-    Info "Creating/validating directory and file structure for mirror and package (${package_name})...";
+# This function creates/validates the file/directory framework for the requested repo.
+Validate_repo_framework() {
+  if [[ -n "${repo_name}" ]]; then
+    Info "Creating/validating directory and file structure for mirror and repo (${repo_name})...";
     #mkdir -p "${providers_tld}";
-    mirror_package_name="${package_name//__/\/}";
+    mirror_repo_name="${repo_name//__/\/}";
     if [[ ! -d "${mirror_tld}" ]]; then
       Fail "Mirror top-level directory (${mirror_tld}) does not exist!"
     else
-      mkdir -p "${mirror_tld}/${mirror_package_name}/" &>/dev/null \
-      || Fail "Unable to create directory (${mirror_tld}/${mirror_package_name}); check permissions."
+      mkdir -p "${mirror_tld}/${mirror_repo_name}/" &>/dev/null \
+      || Fail "Unable to create directory (${mirror_tld}/${mirror_repo_name}); check permissions."
     fi
   fi
 }
 
-# This function performs the actual sync of the package
-Sync_package() {
+# This function performs the actual sync of the repo
+Sync_repo() {
   
   local pypi_url="https://pypi.org"
-  local base_dir="${mirror_tld}/${mirror_package_name}/web"
+  local base_dir="${mirror_tld}/${mirror_repo_name}/web"
   mkdir -p "${base_dir}" &>/dev/null \
       || Fail "Unable to create directory (${base_dir}); check permissions."
 
-  # Step 1. Get package listing from $pypi_url/simple/$mirror_package_name/ 
-  # Step 2. For each package listing, modify it to point to ../../packages/<packages directory>
-  # and save it to $base_dir/simple/$mirror_package_name/index.html
-  # Step 3. Save non package listing lines to previous index.html
-  # Step 4. For each package listing, download package and save
-  # it to $base_dir/packages/<packages directory>
   local simple_dir="${base_dir}/simple"
 
   mkdir -p "${simple_dir}" &>/dev/null \
@@ -231,61 +230,72 @@ Sync_package() {
   mkdir -p "${packages_dir}" &>/dev/null \
       || Fail "Unable to create directory (${packages_dir}); check permissions."
 
-  local package_name_dir="${simple_dir}/${mirror_package_name}"
+  while read package_line; do 
+    # Step 1. Get package listing from $pypi_url/simple/$mirror_package_name/ 
+    # Step 2. For each package listing, modify it to point to ../../packages/<packages directory>
+    # and save it to $base_dir/simple/$mirror_package_name/index.html
+    # Step 3. Save non package listing lines to previous index.html
+    # Step 4. For each package listing, download package and save
+    # it to $base_dir/packages/<packages directory>
 
-  mkdir -p "${package_name_dir}" &>/dev/null \
-      || Fail "Unable to create directory (${package_name_dir}); check permissions."
+    mirror_package_name=${package_line}
 
-  cat /dev/null > ${package_name_dir}/index.html
+    local package_name_dir="${simple_dir}/${mirror_package_name}"
 
-  curl -s ${pypi_url}/simple/${mirror_package_name}/ \
-  | while read line; do
-    # Save the line to the index.html file substituting 'https://files.pythonhosted.org' with '../..' 
-    # This is to make the file downloads relative to the package being mirrored
-    # Example line:     <a href="https://files.pythonhosted.org/packages/b5/9e/ab36e384db3602fdd3729fbb3a467949c40758361f244a379b7553683663/mypy-0.1.tar.gz#sha256=0055650b0b17702e5b7d82a5b09330f9a7d500c829e9967e169bd773d538eb6b">mypy-0.1.tar.gz</a><br/>
-    local newline=${line/https\:\/\/files\.pythonhosted\.org/..\/..}
-    echo "${newline}" >> ${package_name_dir}/index.html
+    mkdir -p "${package_name_dir}" &>/dev/null \
+        || Fail "Unable to create directory (${package_name_dir}); check permissions."
 
-    # Need to get the URL of the package to download
-    local package_url=`echo ${line} | grep -oP "(?<=href\=\").*(?=\"\>)"`
-    
-    # Need to get the SHA256 value to compare to the file, to see if file already exists
-    local package_sha256=`echo ${line} | grep -oP "(?<=sha256\=)[[:alnum:]]*(?=\"\>)"`
-    
-    # Need to get the package file name
-    local package_file_name=`echo ${line} | grep -oP "(?<=\"\>).*(?=\</a\>\<br/\>)"`
+    cat /dev/null > ${package_name_dir}/index.html
 
-    # Need to get the package directory
-    local package_url_dir_path=`echo ${package_url} | grep -oP "(?<=packages/).*(?=#sha256\=)"`
-    package_url_dir_path=${package_url_dir_path%/*}
+    curl -s ${pypi_url}/simple/${mirror_package_name}/ \
+    | while read line; do
+      # Save the line to the index.html file substituting 'https://files.pythonhosted.org' with '../..' 
+      # This is to make the file downloads relative to the package being mirrored
+      # Example line:     <a href="https://files.pythonhosted.org/packages/b5/9e/ab36e384db3602fdd3729fbb3a467949c40758361f244a379b7553683663/mypy-0.1.tar.gz#sha256=0055650b0b17702e5b7d82a5b09330f9a7d500c829e9967e169bd773d538eb6b">mypy-0.1.tar.gz</a><br/>
+      local newline=${line/https\:\/\/files\.pythonhosted\.org/..\/..}
+      echo "${newline}" >> ${package_name_dir}/index.html
 
-    mkdir -p "${packages_dir}/${package_url_dir_path}" &>/dev/null \
-      || Fail "Unable to create directory (${packages_dir}/${package_url_dir_path}); check permissions."
+      # Need to get the URL of the package to download
+      local package_url=`echo ${line} | grep -oP "(?<=href\=\").*(?=\"\>)"`
+      
+      # Need to get the SHA256 value to compare to the file, to see if file already exists
+      local package_sha256=`echo ${line} | grep -oP "(?<=sha256\=)[[:alnum:]]*(?=\"\>)"`
+      
+      # Need to get the package file name
+      local package_file_name=`echo ${line} | grep -oP "(?<=\"\>).*(?=\</a\>\<br/\>)"`
 
-    # Now check to see if file from package listing already exists
-    if [[ ${package_file_name} != "" ]]; then
-      local file_save="true"
-      if [ -s ${packages_dir}/$package_url_dir_path/${package_file_name} ]; then
-        local file_sha256=`sha256sum ${packages_dir}/$package_url_dir_path/${package_file_name}`
-        local file_sha256_array=( ${file_sha256} )
+      # Need to get the package directory
+      local package_url_dir_path=`echo ${package_url} | grep -oP "(?<=packages/).*(?=#sha256\=)"`
+      package_url_dir_path=${package_url_dir_path%/*}
 
-        if [[ ${#file_sha256_array} > 0 ]]; then
-          if [[ ${file_sha256_array[0]} == ${package_sha256} ]]; then
-            file_save="false"
+      mkdir -p "${packages_dir}/${package_url_dir_path}" &>/dev/null \
+        || Fail "Unable to create directory (${packages_dir}/${package_url_dir_path}); check permissions."
+
+      # Now check to see if file from package listing already exists
+      if [[ ${package_file_name} != "" ]]; then
+        local file_save="true"
+        if [ -s ${packages_dir}/$package_url_dir_path/${package_file_name} ]; then
+          local file_sha256=`sha256sum ${packages_dir}/$package_url_dir_path/${package_file_name}`
+          local file_sha256_array=( ${file_sha256} )
+
+          if [[ ${#file_sha256_array} > 0 ]]; then
+            if [[ ${file_sha256_array[0]} == ${package_sha256} ]]; then
+              file_save="false"
+            fi
           fi
+        fi
+
+        # Save file if file_save == "true"
+        if [[ ${file_save}  == "true" ]]; then
+          echo "Saving File: ${package_file_name}..."
+          curl -s -S -o ${packages_dir}/$package_url_dir_path/${package_file_name} ${package_url}
+        else
+          echo "File: ${package_file_name} already exists, skipping..."
         fi
       fi
 
-      # Save file if file_save == "true"
-      if [[ ${file_save}  == "true" ]]; then
-        echo "Saving File: ${package_file_name}..."
-        curl -s -S -o ${packages_dir}/$package_url_dir_path/${package_file_name} ${package_url}
-      else
-        echo "File: ${package_file_name} already exists, skipping..."
-      fi
-    fi
-
-  done
+    done
+  done < ${config_file}
   
 }
 
@@ -312,8 +322,8 @@ if [[ "${?}" == "0" ]]; then
   Info "Starting ${0} for package (${package_name})..."
   for task in \
               Validate_variables \
-              Validate_package_framework \
-              Sync_package;
+              Validate_repo_framework \
+              Sync_repo;
   do
     ${task};
   done
