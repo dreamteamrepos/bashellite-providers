@@ -257,6 +257,7 @@ Sync_repo() {
 
       # Need to get the URL of the package to download
       local package_url=`echo ${line} | grep -oP "(?<=href\=\").*(?=\"\>)"`
+      package_url=${package_url%% *}
       
       # Need to get the SHA256 value to compare to the file, to see if file already exists
       local package_sha256=`echo ${line} | grep -oP "(?<=sha256\=)[[:alnum:]]*(?=\")"`
@@ -274,8 +275,8 @@ Sync_repo() {
       # Now check to see if file from package listing already exists
       if [[ ${package_file_name} != "" ]]; then
         local file_save="true"
-        if [ -s ${packages_dir}/$package_url_dir_path/${package_file_name} ]; then
-          local file_sha256=`sha256sum ${packages_dir}/$package_url_dir_path/${package_file_name}`
+        if [ -s "${packages_dir}/$package_url_dir_path/${package_file_name}" ]; then
+          local file_sha256=`sha256sum "${packages_dir}/$package_url_dir_path/${package_file_name}"`
           local file_sha256_array=( ${file_sha256} )
 
           if [[ ${#file_sha256_array} > 0 ]]; then
@@ -288,7 +289,7 @@ Sync_repo() {
         # Save file if file_save == "true"
         if [[ ${file_save}  == "true" ]]; then
           echo "Saving File: ${package_file_name}..."
-          curl -s -S -o ${packages_dir}/$package_url_dir_path/${package_file_name} ${package_url}
+          curl -s -S -o "${packages_dir}/$package_url_dir_path/${package_file_name}" ${package_url}
         else
           echo "File: ${package_file_name} already exists, skipping..."
         fi
