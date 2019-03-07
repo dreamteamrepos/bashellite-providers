@@ -255,43 +255,55 @@ Sync_repo() {
       local newline=${line/https\:\/\/files\.pythonhosted\.org/..\/..}
       echo "${newline}" >> ${package_name_dir}/index.html
 
-      # Need to get the URL of the package to download
-      local package_url=`echo ${line} | grep -oP "(?<=href\=\").*(?=\"\>)"`
-      package_url=${package_url%% *}
+      # Only process lines that contain an href html tag
+      if [[ ${line} =~ .*href.* ]]; then
+        # Need to get the URL of the package to download
+        #local package_url=`echo ${line} | grep -oP "(?<=href\=\").*(?=\"\>)"`
+        #package_url=${package_url%% *}
+        local package_url=${line#*\<a\ href\=\"}
+        package_url=${package_url%%\"*}
       
-      # Need to get the SHA256 value to compare to the file, to see if file already exists
-      local package_sha256=`echo ${line} | grep -oP "(?<=sha256\=)[[:alnum:]]*(?=\")"`
-      
-      # Need to get the package file name
-      local package_file_name=`echo ${line} | grep -oP "(?<=\"\>).*(?=\</a\>\<br/\>)"`
+        # Need to get the SHA256 value to compare to the file, to see if file already exists
+        #local package_sha256=`echo ${line} | grep -oP "(?<=sha256\=)[[:alnum:]]*(?=\")"`
+        local package_sha256=${line##*sha256\=}
+        package_sha256=${package_sha256%%\"*}
+        
+        # Need to get the package file name
+        #local package_file_name=`echo ${line} | grep -oP "(?<=\"\>).*(?=\</a\>\<br/\>)"`
+        local package_file_name=${line#\<a\ href*\>}
+        package_file_name=${package_file_name%%\<*}
 
-      # Need to get the package directory
-      local package_url_dir_path=`echo ${package_url} | grep -oP "(?<=packages/).*(?=#sha256\=)"`
-      package_url_dir_path=${package_url_dir_path%/*}
+        # Need to get the package directory
+        #local package_url_dir_path=`echo ${package_url} | grep -oP "(?<=packages/).*(?=#sha256\=)"`
+        #package_url_dir_path=${package_url_dir_path%/*}
+        local package_url_dir_path=${package_url#*packages/}
+        package_url_dir_path=${package_url_dir_path%%\#sha256*}
+        package_url_dir_path=${package_url_dir_path%/*}
 
-      mkdir -p "${packages_dir}/${package_url_dir_path}" &>/dev/null \
-        || Fail "Unable to create directory (${packages_dir}/${package_url_dir_path}); check permissions."
+        mkdir -p "${packages_dir}/${package_url_dir_path}" &>/dev/null \
+          || Fail "Unable to create directory (${packages_dir}/${package_url_dir_path}); check permissions."
 
-      # Now check to see if file from package listing already exists
-      if [[ ${package_file_name} != "" ]]; then
-        local file_save="true"
-        if [ -s "${packages_dir}/$package_url_dir_path/${package_file_name}" ]; then
-          local file_sha256=`sha256sum "${packages_dir}/$package_url_dir_path/${package_file_name}"`
-          local file_sha256_array=( ${file_sha256} )
+        # Now check to see if file from package listing already exists
+        if [[ ${package_file_name} != "" ]]; then
+          local file_save="true"
+          if [ -s "${packages_dir}/$package_url_dir_path/${package_file_name}" ]; then
+            local file_sha256=`sha256sum "${packages_dir}/$package_url_dir_path/${package_file_name}"`
+            local file_sha256_array=( ${file_sha256} )
 
-          if [[ ${#file_sha256_array} > 0 ]]; then
-            if [[ ${file_sha256_array[0]} == ${package_sha256} ]]; then
-              file_save="false"
+            if [[ ${#file_sha256_array} > 0 ]]; then
+              if [[ ${file_sha256_array[0]} == ${package_sha256} ]]; then
+                file_save="false"
+              fi
             fi
           fi
-        fi
 
-        # Save file if file_save == "true"
-        if [[ ${file_save}  == "true" ]]; then
-          echo "Saving File: ${package_file_name}..."
-          curl -s -S -o "${packages_dir}/$package_url_dir_path/${package_file_name}" ${package_url}
-        else
-          echo "File: ${package_file_name} already exists, skipping..."
+          # Save file if file_save == "true"
+          if [[ ${file_save}  == "true" ]]; then
+            echo "Saving File: ${package_file_name}..."
+            curl -s -S -o "${packages_dir}/$package_url_dir_path/${package_file_name}" ${package_url}
+          else
+            echo "File: ${package_file_name} already exists, skipping..."
+          fi
         fi
       fi
 
