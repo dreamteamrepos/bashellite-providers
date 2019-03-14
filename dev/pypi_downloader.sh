@@ -240,6 +240,8 @@ Sync_repo() {
 
     mirror_package_name=${package_line}
 
+    echo "Processing package: ${mirror_package_name}"
+
     local package_name_dir="${simple_dir}/${mirror_package_name}"
 
     mkdir -p "${package_name_dir}" &>/dev/null \
@@ -265,13 +267,13 @@ Sync_repo() {
       
         # Need to get the SHA256 value to compare to the file, to see if file already exists
         #local package_sha256=`echo ${line} | grep -oP "(?<=sha256\=)[[:alnum:]]*(?=\")"`
-        local package_sha256=${line##*sha256\=}
-        package_sha256=${package_sha256%%\"*}
+        local package_sha256=${package_url##*sha256\=}
+        #package_sha256=${package_sha256%%\"*}
         
         # Need to get the package file name
         #local package_file_name=`echo ${line} | grep -oP "(?<=\"\>).*(?=\</a\>\<br/\>)"`
-        local package_file_name=${line#\<a\ href*\>}
-        package_file_name=${package_file_name%%\<*}
+        local package_file_name=${package_url##\http*//*/packages/*/*/*/}
+        package_file_name=${package_file_name%\#sha256\=*}
 
         # Need to get the package directory
         #local package_url_dir_path=`echo ${package_url} | grep -oP "(?<=packages/).*(?=#sha256\=)"`
