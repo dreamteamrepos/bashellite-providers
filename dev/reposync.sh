@@ -12,10 +12,14 @@ while read line; do
     echo "Base: ${repo_base}"
     if [[ ${repo_enabled} == 1 ]]; then
       echo "Syncing repo: ${repo_id}"
-      reposync -c ${config_file} -r ${repo_id} -p ${save_loc}/${repo_id} --norepopath -m
-
       # newstr=${oldstr#http*//*/}
-
+      # Parse the directory structure from the baseurl
+      save_dir=${repo_base#http*//*/}
+      # Check for the existance of the directory structure.  If not existing, create it
+      if [[ ! -d "${save_loc}/${save_dir}" ]]; then
+        mkdir -p ${save_loc}/${save_dir}
+      fi
+      reposync -c ${config_file} -r ${repo_id} -p ${save_loc}/${save_dir} --norepopath -m
     fi
   fi  
 done < ${config_file};
