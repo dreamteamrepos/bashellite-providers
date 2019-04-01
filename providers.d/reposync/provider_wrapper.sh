@@ -19,9 +19,9 @@ bashelliteProviderWrapperReposync() {
         reposync -c ${config_file} -r ${repo_id} -p ${save_loc}/${save_dir} --norepopath -m
         local return_val="${?}"
         if [[ "${return_val}" == "0" ]]; then
-          utilMsg INFO "$(utilTime)" "Sync of repo (${_n_repo_name}) using ${_n_repo_provider} completed without error...";
+          utilMsg INFO "$(utilTime)" "Sync of repo ${repo_id} from repo site (${_n_repo_name}) using ${_n_repo_provider} completed without error...";
         else
-          utilMsg WARN "$(utilTime)" "Sync of repo (${_n_repo_name}) using ${_n_repo_provider} did NOT complete without error...";
+          utilMsg WARN "$(utilTime)" "Sync of repo ${repo_id} from repo site (${_n_repo_name}) using ${_n_repo_provider} did NOT complete without error...";
         fi
       fi
     fi  
