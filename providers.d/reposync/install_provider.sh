@@ -8,6 +8,7 @@ main() {
   for dep in \
              ${bin_name} \
              createrepo \
+             crudini \
              ; do
     which ${dep} &>/dev/null \
     || {

@@ -17,3 +17,5 @@ For the installer script for this provider, please see `install_provider.sh`.
 For the wrapper function(s) that actually calls the provider's executable, please see `provider_wrapper.sh`.
 
 For general information about providers, please see the main `README.md` for this entire repository.
+
+NOTE: Reposync provider requires the crudini package as a dependency.

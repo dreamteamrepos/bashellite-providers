@@ -16,9 +16,9 @@ while read line; do
       # Parse the directory structure from the baseurl
       save_dir=${repo_base#http*//*/}
       # Check for the existance of the directory structure.  If not existing, create it
-      if [[ ! -d "${save_loc}/${save_dir}" ]]; then
-        mkdir -p ${save_loc}/${save_dir}
-      fi
+      #if [[ ! -d "${save_loc}/${save_dir}" ]]; then
+      #  mkdir -p ${save_loc}/${save_dir}
+      #fi
       reposync -c ${config_file} -r ${repo_id} -p ${save_loc}/${save_dir} --norepopath -m
     fi
   fi  
