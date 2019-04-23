@@ -2,8 +2,8 @@ bashelliteProviderWrapper() {
 
   local basepath_parameter=$(egrep "^\s*set\s*base_path\s*[[:alnum:]/_.-]*" "${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf")
   basepath_parameter="${basepath_parameter#*set*base_path}"
-  if [[  "${basepath_parameter}" != "${_r_mirror_tld}/${_n_repo_name}" ]]; then
-    utilMsg WARN "$(utilTime)" "The \"base_path\" parameter ("${basepath_parameter}") in provider.conf does not match mirror location (${_r_mirror_tld}/${_n_repo_name})..."
+  if [[  "${basepath_parameter}" != "${_r_mirror_tld}/${_n_mirror_repo_name}" ]]; then
+    utilMsg WARN "$(utilTime)" "The \"base_path\" parameter ("${basepath_parameter}") in provider.conf does not match mirror location (${_r_mirror_tld}/${_n_mirror_repo_name})..."
   fi
 
   local config_file="${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf"
@@ -15,7 +15,7 @@ bashelliteProviderWrapper() {
   while IFS=$'\n' read line; do
     if [[ "${line}" =~ ^set[[:blank:]]base_path[[:blank:]]+[[:alnum:]/_.-]+ ]]; then
       if [ "${line_counter}" = 0 ]; then
-        echo "set base_path         ${_r_mirror_tld}/${_n_repo_name}" >> ${tmp_config_file}
+        echo "set base_path         ${_r_mirror_tld}/${_n_mirror_repo_name}" >> ${tmp_config_file}
       else
         utilMsg WARN "$(utilTime)" "Duplicate base_path parameter found.  Skipping line..."
       fi

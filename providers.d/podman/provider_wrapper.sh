@@ -2,9 +2,9 @@ bashelliteProviderWrapperPodman() {
 
   # Set vars based on passed in vars
   config_file="${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf"
-  podman_registry_url="${_n_repo_url}"
+  podman_registry_url="${_n_repo_url#http*://}"
   mirror_tld="${_r_mirror_tld}"
-  mirror_repo_name="${_n_repo_name}"
+  mirror_repo_name="${_n_mirror_repo_name}"
 
   image_name_array=()
 
