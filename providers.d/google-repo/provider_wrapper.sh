@@ -1,7 +1,7 @@
 bashelliteProviderWrapperGoogleRepo() {
 
   # Check to see if repo has been initialized
-  cd ${_r_mirror_tld}/${_n_repo_name}
+  cd ${_r_mirror_tld}/${_n_mirror_repo_name}
   if [ ! -d ".repo" ]; then
     # Need to initialize repo
     utilMsg INFO "$(utilTime)" "Repo not initialized.  Initializing..."

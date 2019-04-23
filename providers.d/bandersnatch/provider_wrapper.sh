@@ -11,8 +11,8 @@ bashelliteProviderWrapperBandersnatch() {
   fi
 
   local directory_parameter="$(grep -oP "(?<=(^directory = )).*" ${_r_metadata_tld}/repos.conf.d/${_n_repo_name}/provider.conf)"
-  if [[  "${directory_parameter}" != "${_r_mirror_tld}/${_n_repo_name}" ]]; then
-    utilMsg WARN "$(utilTime)" "The \"directory\" parameter (${directory_parameter}) in provider.conf does not match mirror location (${_r_mirror_tld}/${_n_repo_name})..."
+  if [[  "${directory_parameter}" != "${_r_mirror_tld}/${_n_mirror_repo_name}" ]]; then
+    utilMsg WARN "$(utilTime)" "The \"directory\" parameter (${directory_parameter}) in provider.conf does not match mirror location (${_r_mirror_tld}/${_n_mirror_repo_name})..."
   fi
 
   if [ ! -d ${HOME}/.bashellite ]; then
@@ -29,7 +29,7 @@ bashelliteProviderWrapperBandersnatch() {
   while IFS=$'\n' read line; do
     if [[ ${line} =~ ^directory[[:blank:]]*[=][[:blank:]]*[[:alnum:]/_.-]+ ]]; then
       if [ "${line_counter}" = 0 ]; then
-        echo "directory = ${_r_mirror_tld}/${_n_repo_name}" >> ${tmp_config_file}
+        echo "directory = ${_r_mirror_tld}/${_n_mirror_repo_name}" >> ${tmp_config_file}
       else
         utilMsg WARN "$(utilTime)" "Duplicate directory parameter found.  Skipping line..."
       fi
