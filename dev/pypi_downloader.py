@@ -1,6 +1,7 @@
 from lxml import html, etree
 import requests, re, argparse, os, datetime, shutil
 
+
 # This function grabs a list of all the packages at the pypi index site specified by 'baseurl'
 def getPackageList(baseurl):
     page = requests.get(baseurl + "/simple/")
@@ -8,6 +9,7 @@ def getPackageList(baseurl):
     pkgs = tree.xpath("//@href")
 
     return pkgs
+
 
 # This function parses the command line arguments
 def parseCommandLine():
@@ -20,6 +22,7 @@ def parseCommandLine():
     args = parser.parse_args()
 
     return args
+
 
 def processPackageIndex(pkg):
     # Here we look for the simple package name for the package item
@@ -40,7 +43,7 @@ def processPackageIndex(pkg):
         orig_url = a.get("href")
         new_url = re.sub(r"http\w*://.*/packages", "../../packages", orig_url, 1, re.IGNORECASE)
         a.set("href", new_url)
-    
+
     # Here we write out the localized package index.html
     doc = etree.ElementTree(tree)
     save_loc = simple_loc + "/" + pkg_name
@@ -48,6 +51,7 @@ def processPackageIndex(pkg):
     doc.write(save_loc + "/" + "index.html")
 
     return pkg_name
+
 
 def processPackageFiles(pkg_name):
 
@@ -64,9 +68,9 @@ def processPackageFiles(pkg_name):
                         file_name = file['filename']
                         file_url = file['url']
                         file_url_md5 = file['digests']['md5']
-                        file_url_size = file['size'] # In bytes
-                        file_url_time = file['upload_time'] # time format returned: 2019-04-16T20:36:54
-                        file_url_time = int(datetime.datetime.strptime(file_url_time, '%Y-%m-%dT%H:%M:%S').timestamp()) # Epoch time version of file_url_time
+                        file_url_size = file['size']  # In bytes
+                        file_url_time = file['upload_time']  # time format returned: 2019-04-16T20:36:54
+                        file_url_time_epoch = int(datetime.datetime.strptime(file_url_time, '%Y-%m-%dT%H:%M:%S').timestamp())  # Epoch time version of file_url_time
 
                         # Here we need to parse out the directory structure for locally storing the file
                         parsed_dir_match = re.search(r"http[s]{0,1}://[^/]+/(.*)/", file_url, re.IGNORECASE)
@@ -91,7 +95,7 @@ def processPackageFiles(pkg_name):
                             if download_file:
                                 # Here we download the file
                                 print("[INFO]: Downloading " + file_name + "...")
-                                os.makedirs(file_dir, exist_ok=True) # create (if not existing) path to file to be saved
+                                os.makedirs(file_dir, exist_ok=True)  # create (if not existing) path to file to be saved
                                 package_file_req = requests.get(file_url, stream=True)
                                 with open(file_loc, 'wb') as outfile:
                                     shutil.copyfileobj(package_file_req.raw, outfile)
@@ -106,22 +110,23 @@ def processPackageFiles(pkg_name):
 
 ######################################### Start of main processing
 
-args = parseCommandLine()
+if __name__ == "__main__":
 
-mirror_tld = args.mirror_tld
-repo_name = args.repo_name
-repo_url = args.repo_url
-web_loc = mirror_tld + "/" + repo_name + "/" + "web"
-simple_loc = web_loc + "/" + "simple"
+    args = parseCommandLine()
 
-if args.config_file == None:
-    print("[INFO]: No list of packages specified, downloading from pypi index: " + repo_url)
-    pkgs = getPackageList(repo_url)
-else:
-    pkgs = args.config_file.read().split()
+    mirror_tld = args.mirror_tld
+    repo_name = args.repo_name
+    repo_url = args.repo_url
+    web_loc = mirror_tld + "/" + repo_name + "/" + "web"
+    simple_loc = web_loc + "/" + "simple"
 
-for p in pkgs:
-    pkg_simple_name = processPackageIndex(p)
-    print("[INFO]: Processing package " + pkg_simple_name + "...")
-    processPackageFiles(pkg_simple_name)
+    if args.config_file is None:
+        print("[INFO]: No list of packages specified, downloading from pypi index: " + repo_url)
+        pkgs = getPackageList(repo_url)
+    else:
+        pkgs = args.config_file.read().split()
 
+    for p in pkgs:
+        pkg_simple_name = processPackageIndex(p)
+        print("[INFO]: Processing package " + pkg_simple_name + "...")
+        processPackageFiles(pkg_simple_name)
