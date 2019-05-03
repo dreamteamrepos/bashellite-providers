@@ -3,12 +3,24 @@ import requests, re, argparse, os, datetime, shutil
 
 
 # This function grabs a list of all the packages at the pypi index site specified by 'baseurl'
-def getPackageList(baseurl):
+def getPackageListFromIndex(baseurl):
     page = requests.get(baseurl + "/simple/")
     tree = html.fromstring(page.content)
     pkgs = tree.xpath("//@href")
 
-    return pkgs
+    newpkgs = []
+
+    for p in pkgs:
+        # Here we look for the simple package name for the package item
+        # returned in package list
+        pkg_name_match = re.search(r"simple/(.*)/", p, re.IGNORECASE)
+        if pkg_name_match:
+            tmp = pkg_name_match.group(1)
+            newpkgs.append(tmp)
+        else:
+            newpkgs.append(p)
+
+    return newpkgs
 
 
 # This function parses the command line arguments
@@ -25,15 +37,7 @@ def parseCommandLine():
 
 
 def processPackageIndex(pkg):
-    # Here we look for the simple package name for the package item
-    # returned in package list
-    pkg_name_match = re.search(r"simple/(.*)/", pkg, re.IGNORECASE)
-    if pkg_name_match:
-        pkg_name = pkg_name_match.group(1)
-    else:
-        pkg_name = pkg
-
-    page = requests.get(repo_url + "/simple/" + pkg_name)
+    page = requests.get(repo_url + "/simple/" + pkg)
     tree = html.fromstring(page.content)
 
     # Here we get the list of urls to the package file versions to make into a relative
@@ -46,15 +50,12 @@ def processPackageIndex(pkg):
 
     # Here we write out the localized package index.html
     doc = etree.ElementTree(tree)
-    save_loc = simple_loc + "/" + pkg_name
+    save_loc = simple_loc + "/" + pkg
     os.makedirs(save_loc, exist_ok=True)
     doc.write(save_loc + "/" + "index.html")
 
-    return pkg_name
-
 
 def processPackageFiles(pkg_name):
-
     # Here we get the json info page for the package
     page = requests.get(repo_url + "/pypi/" + pkg_name + "/json")
     if page.status_code == 200:
@@ -111,7 +112,6 @@ def processPackageFiles(pkg_name):
 ######################################### Start of main processing
 
 if __name__ == "__main__":
-
     args = parseCommandLine()
 
     mirror_tld = args.mirror_tld
@@ -122,11 +122,11 @@ if __name__ == "__main__":
 
     if args.config_file is None:
         print("[INFO]: No list of packages specified, downloading from pypi index: " + repo_url)
-        pkgs = getPackageList(repo_url)
+        pkgs = getPackageListFromIndex(repo_url)
     else:
         pkgs = args.config_file.read().split()
 
     for p in pkgs:
-        pkg_simple_name = processPackageIndex(p)
-        print("[INFO]: Processing package " + pkg_simple_name + "...")
-        processPackageFiles(pkg_simple_name)
+        print("[INFO]: Processing package " + p + "...")
+        processPackageIndex(p)
+        processPackageFiles(p)
