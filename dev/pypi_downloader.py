@@ -35,9 +35,11 @@ def parseCommandLine():
 
     return args
 
+# This function parses the package index file and writes it with relative path for the package files
+def processPackageIndex(pkg, base_url, base_save_loc):
+    simple_loc = base_save_loc + "/" + "web" + "/" + "simple"
 
-def processPackageIndex(pkg):
-    page = requests.get(repo_url + "/simple/" + pkg)
+    page = requests.get(base_url + "/simple/" + pkg)
     tree = html.fromstring(page.content)
 
     # Here we get the list of urls to the package file versions to make into a relative
@@ -54,10 +56,12 @@ def processPackageIndex(pkg):
     os.makedirs(save_loc, exist_ok=True)
     doc.write(save_loc + "/" + "index.html")
 
+# This function downloads package files if they are newer or of a differing size
+def processPackageFiles(pkg_name, base_url, base_save_loc):
+    web_loc = base_save_loc + "/" + "web"
 
-def processPackageFiles(pkg_name):
     # Here we get the json info page for the package
-    page = requests.get(repo_url + "/pypi/" + pkg_name + "/json")
+    page = requests.get(base_url + "/pypi/" + pkg_name + "/json")
     if page.status_code == 200:
         json_page = page.json()
 
@@ -117,8 +121,7 @@ if __name__ == "__main__":
     mirror_tld = args.mirror_tld
     repo_name = args.repo_name
     repo_url = args.repo_url
-    web_loc = mirror_tld + "/" + repo_name + "/" + "web"
-    simple_loc = web_loc + "/" + "simple"
+    mirror_repo_loc = mirror_tld + "/" + repo_name
 
     if args.config_file is None:
         print("[INFO]: No list of packages specified, downloading from pypi index: " + repo_url)
@@ -128,5 +131,5 @@ if __name__ == "__main__":
 
     for p in pkgs:
         print("[INFO]: Processing package " + p + "...")
-        processPackageIndex(p)
-        processPackageFiles(p)
+        processPackageIndex(p, repo_url, mirror_repo_loc)
+        processPackageFiles(p, repo_url, mirror_repo_loc)
