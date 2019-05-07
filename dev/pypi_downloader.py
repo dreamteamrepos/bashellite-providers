@@ -1,5 +1,5 @@
 from lxml import html, etree
-import requests, re, argparse, os, datetime, shutil, logging
+import requests, re, argparse, os, datetime, shutil, logging, sys
 
 
 # This function grabs a list of all the packages at the pypi index site specified by 'baseurl'
@@ -25,11 +25,16 @@ def getPackageListFromIndex(baseurl):
 
 # This function parses the command line arguments
 def parseCommandLine():
-    parser = argparse.ArgumentParser(description="Script to mirror pypi packages")
+    parser = argparse.ArgumentParser(
+        description="Script to mirror pypi packages",
+        epilog="If neither '-c' nor '-i' are given, packages are read from stdin."
+        )
     parser.add_argument('-m', dest='mirror_tld', default='/mirror1/repos', help='Base directory to store repos')
     parser.add_argument('-r', dest='repo_name', help='repo name for storing packages in', required=True)
-    parser.add_argument('-c', dest='config_file', type=argparse.FileType('r'), help='file to parse packages name to download')
     parser.add_argument('-u', dest='repo_url', default='https://pypi.org', help='URL of pypi index site')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-c', dest='config_file', type=argparse.FileType('r'), help='file to parse packages name to download')
+    group.add_argument('-i', dest='index', action='store_true', help='package names are provided by pypi index site')
 
     args = parser.parse_args()
 
@@ -126,11 +131,15 @@ if __name__ == "__main__":
     repo_url = args.repo_url
     mirror_repo_loc = mirror_tld + "/" + repo_name
 
-    if args.config_file is None:
-        logging.info("No list of packages specified, downloading from pypi index: " + repo_url)
+    if args.config_file:
+        logging.info("Grabbing list of packages from file: " + args.config_file.name)
+        pkgs = args.config_file.read().split()
+    elif args.index:
+        logging.info("Grabbing list of packages from pypi index: " + repo_url)
         pkgs = getPackageListFromIndex(repo_url)
     else:
-        pkgs = args.config_file.read().split()
+        logging.info("Grabbing list of packages from stdin...")
+        pkgs = sys.stdin.read().split()
 
     for p in pkgs:
         logging.info("Processing package " + p + "...")
