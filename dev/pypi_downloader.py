@@ -1,5 +1,5 @@
 from lxml import html, etree
-import requests, re, argparse, os, datetime, shutil
+import requests, re, argparse, os, datetime, shutil, logging
 
 
 # This function grabs a list of all the packages at the pypi index site specified by 'baseurl'
@@ -99,23 +99,26 @@ def processPackageFiles(pkg_name, base_url, base_save_loc):
 
                             if download_file:
                                 # Here we download the file
-                                print("[INFO]: Downloading " + file_name + "...")
+                                #print("[INFO]: Downloading " + file_name + "...")
+                                logging.info("Downloading " + file_name + "...")
                                 os.makedirs(file_dir, exist_ok=True)  # create (if not existing) path to file to be saved
                                 package_file_req = requests.get(file_url, stream=True)
                                 with open(file_loc, 'wb') as outfile:
                                     shutil.copyfileobj(package_file_req.raw, outfile)
                                 os.utime(file_loc, (file_url_time_epoch, file_url_time_epoch))
                             else:
-                                print("[INFO]: " + file_name + " exists, skipping...")
+                                logging.info(file_name + " exists, skipping...")
 
                         else:
-                            print("[WARN]: No package file url matched, skipping...")
+                            logging.warn("No package file url matched, skipping...")
                             continue
 
 
 ######################################### Start of main processing
 
 if __name__ == "__main__":
+    
+    logging.basicConfig(level=logging.INFO, format='[%(levelname)s]: %(message)s')
     args = parseCommandLine()
 
     mirror_tld = args.mirror_tld
@@ -124,12 +127,12 @@ if __name__ == "__main__":
     mirror_repo_loc = mirror_tld + "/" + repo_name
 
     if args.config_file is None:
-        print("[INFO]: No list of packages specified, downloading from pypi index: " + repo_url)
+        logging.info("No list of packages specified, downloading from pypi index: " + repo_url)
         pkgs = getPackageListFromIndex(repo_url)
     else:
         pkgs = args.config_file.read().split()
 
     for p in pkgs:
-        print("[INFO]: Processing package " + p + "...")
+        logging.info("Processing package " + p + "...")
         processPackageIndex(p, repo_url, mirror_repo_loc)
         processPackageFiles(p, repo_url, mirror_repo_loc)
