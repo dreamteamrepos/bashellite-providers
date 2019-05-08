@@ -1,5 +1,5 @@
 from lxml import html, etree
-import requests, re, argparse, os, datetime, shutil
+import requests, re, argparse, os, datetime, shutil, logging, sys
 
 
 # This function grabs a list of all the packages at the pypi index site specified by 'baseurl'
@@ -25,11 +25,16 @@ def getPackageListFromIndex(baseurl):
 
 # This function parses the command line arguments
 def parseCommandLine():
-    parser = argparse.ArgumentParser(description="Script to mirror pypi packages")
+    parser = argparse.ArgumentParser(
+        description="Script to mirror pypi packages",
+        epilog="If neither '-c' nor '-i' are given, packages are read from stdin."
+        )
     parser.add_argument('-m', dest='mirror_tld', default='/mirror1/repos', help='Base directory to store repos')
     parser.add_argument('-r', dest='repo_name', help='repo name for storing packages in', required=True)
-    parser.add_argument('-c', dest='config_file', type=argparse.FileType('r'), help='file to parse packages name to download')
     parser.add_argument('-u', dest='repo_url', default='https://pypi.org', help='URL of pypi index site')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-c', dest='config_file', type=argparse.FileType('r'), help='file to parse packages name to download')
+    group.add_argument('-i', dest='index', action='store_true', help='package names are provided by pypi index site')
 
     args = parser.parse_args()
 
@@ -99,23 +104,26 @@ def processPackageFiles(pkg_name, base_url, base_save_loc):
 
                             if download_file:
                                 # Here we download the file
-                                print("[INFO]: Downloading " + file_name + "...")
+                                #print("[INFO]: Downloading " + file_name + "...")
+                                logging.info("Downloading " + file_name + "...")
                                 os.makedirs(file_dir, exist_ok=True)  # create (if not existing) path to file to be saved
                                 package_file_req = requests.get(file_url, stream=True)
                                 with open(file_loc, 'wb') as outfile:
                                     shutil.copyfileobj(package_file_req.raw, outfile)
                                 os.utime(file_loc, (file_url_time_epoch, file_url_time_epoch))
                             else:
-                                print("[INFO]: " + file_name + " exists, skipping...")
+                                logging.info(file_name + " exists, skipping...")
 
                         else:
-                            print("[WARN]: No package file url matched, skipping...")
+                            logging.warn("No package file url matched, skipping...")
                             continue
 
 
 ######################################### Start of main processing
 
 if __name__ == "__main__":
+    
+    logging.basicConfig(level=logging.INFO, format='[%(levelname)s]: %(message)s')
     args = parseCommandLine()
 
     mirror_tld = args.mirror_tld
@@ -123,13 +131,17 @@ if __name__ == "__main__":
     repo_url = args.repo_url
     mirror_repo_loc = mirror_tld + "/" + repo_name
 
-    if args.config_file is None:
-        print("[INFO]: No list of packages specified, downloading from pypi index: " + repo_url)
+    if args.config_file:
+        logging.info("Grabbing list of packages from file: " + args.config_file.name)
+        pkgs = args.config_file.read().split()
+    elif args.index:
+        logging.info("Grabbing list of packages from pypi index: " + repo_url)
         pkgs = getPackageListFromIndex(repo_url)
     else:
-        pkgs = args.config_file.read().split()
+        logging.info("Grabbing list of packages from stdin...")
+        pkgs = sys.stdin.read().split()
 
     for p in pkgs:
-        print("[INFO]: Processing package " + p + "...")
+        logging.info("Processing package " + p + "...")
         processPackageIndex(p, repo_url, mirror_repo_loc)
         processPackageFiles(p, repo_url, mirror_repo_loc)
