@@ -1,5 +1,5 @@
 from lxml import html, etree
-import requests, re, argparse, os, datetime, shutil, logging, sys
+import requests, re, argparse, logging
 
 
 # This function grabs a list of all the packages at the pypi index site specified by 'baseurl'
