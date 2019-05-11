@@ -49,6 +49,55 @@ def parseCommandLine():
 
     return args
 
+# This function downloads an a file given a dictionary of file information from pypi.org
+def downloadReleaseFile(file_download_info, base_save_loc):
+    web_loc = base_save_loc
+    file = file_download_info
+
+    # Here we parse out some information from the returned json object for later use
+    file_name = file['filename']
+    file_url = file['url']
+    file_url_md5 = file['digests']['md5']
+    file_url_size = file['size']  # In bytes
+    file_url_time = file['upload_time']  # time format returned: 2019-04-16T20:36:54
+    file_url_time_epoch = int(datetime.datetime.strptime(file_url_time, '%Y-%m-%dT%H:%M:%S').timestamp())  # Epoch time version of file_url_time
+
+    # Here we need to parse out the directory structure for locally storing the file
+    parsed_dir_match = re.search(r"http[s]{0,1}://[^/]+/(.*)/", file_url, re.IGNORECASE)
+    if parsed_dir_match:
+        parsed_dir = parsed_dir_match.group(1)
+        file_loc = web_loc + "/" + parsed_dir + "/" + file_name
+        file_dir = web_loc + "/" + parsed_dir
+        # Here we first get the stats of a possible already existing file
+        download_file = False
+        if os.path.exists(file_loc):
+            file_info = os.stat(file_loc)
+            file_size = file_info.st_size
+            file_mod_time = file_info.st_mtime
+
+            # Here we check if the file should be overwritten
+            if file_url_size != file_size or file_url_time_epoch > file_mod_time:
+                download_file = True
+
+        else:
+            download_file = True
+
+        if download_file:
+            # Here we download the file
+            #print("[INFO]: Downloading " + file_name + "...")
+            logging.info("Downloading " + file_name + "...")
+            os.makedirs(file_dir, exist_ok=True)  # create (if not existing) path to file to be saved
+            package_file_req = requests.get(file_url, stream=True)
+            with open(file_loc, 'wb') as outfile:
+                shutil.copyfileobj(package_file_req.raw, outfile)
+            os.utime(file_loc, (file_url_time_epoch, file_url_time_epoch))
+        else:
+            logging.info(file_name + " exists, skipping...")
+
+    else:
+        logging.warn("No package file url matched, skipping...")
+
+
 # This function parses the package index file and writes it with relative path for the package files
 def processPackageIndex(pkg, base_url, base_save_loc):
     simple_loc = base_save_loc + "/" + "web" + "/" + "simple"
@@ -83,50 +132,7 @@ def processPackageFiles(pkg_name, base_url, base_save_loc):
             for release in json_page['releases']:
                 if len(json_page['releases'][release]) > 0:
                     for file in json_page['releases'][release]:
-                        # Here we parse out some information from the returned json object for later use
-                        file_name = file['filename']
-                        file_url = file['url']
-                        file_url_md5 = file['digests']['md5']
-                        file_url_size = file['size']  # In bytes
-                        file_url_time = file['upload_time']  # time format returned: 2019-04-16T20:36:54
-                        file_url_time_epoch = int(datetime.datetime.strptime(file_url_time, '%Y-%m-%dT%H:%M:%S').timestamp())  # Epoch time version of file_url_time
-
-                        # Here we need to parse out the directory structure for locally storing the file
-                        parsed_dir_match = re.search(r"http[s]{0,1}://[^/]+/(.*)/", file_url, re.IGNORECASE)
-                        if parsed_dir_match:
-                            parsed_dir = parsed_dir_match.group(1)
-                            file_loc = web_loc + "/" + parsed_dir + "/" + file_name
-                            file_dir = web_loc + "/" + parsed_dir
-                            # Here we first get the stats of a possible already existing file
-                            download_file = False
-                            if os.path.exists(file_loc):
-                                file_info = os.stat(file_loc)
-                                file_size = file_info.st_size
-                                file_mod_time = file_info.st_mtime
-
-                                # Here we check if the file should be overwritten
-                                if file_url_size != file_size or file_url_time_epoch > file_mod_time:
-                                    download_file = True
-
-                            else:
-                                download_file = True
-
-                            if download_file:
-                                # Here we download the file
-                                #print("[INFO]: Downloading " + file_name + "...")
-                                logging.info("Downloading " + file_name + "...")
-                                os.makedirs(file_dir, exist_ok=True)  # create (if not existing) path to file to be saved
-                                package_file_req = requests.get(file_url, stream=True)
-                                with open(file_loc, 'wb') as outfile:
-                                    shutil.copyfileobj(package_file_req.raw, outfile)
-                                os.utime(file_loc, (file_url_time_epoch, file_url_time_epoch))
-                            else:
-                                logging.info(file_name + " exists, skipping...")
-
-                        else:
-                            logging.warn("No package file url matched, skipping...")
-                            continue
-
+                        downloadReleaseFile(file, web_loc)
 
 ######################################### Start of main processing
 
