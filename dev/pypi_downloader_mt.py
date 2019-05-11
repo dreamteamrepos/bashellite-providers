@@ -8,7 +8,7 @@ import shutil
 import logging
 import sys
 import concurrent.futures
-import threading
+import itertools
 
 
 # This function grabs a list of all the packages at the pypi index site specified by 'baseurl'
@@ -41,6 +41,7 @@ def parseCommandLine():
     parser.add_argument('-m', dest='mirror_tld', default='/mirror1/repos', help='Base directory to store repos')
     parser.add_argument('-r', dest='repo_name', help='repo name for storing packages in', required=True)
     parser.add_argument('-u', dest='repo_url', default='https://pypi.org', help='URL of pypi index site')
+    parser.add_argument('-t', dest='thread_count', type=int, default=5, help='Number of threads to use for downloading files')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-c', dest='config_file', type=argparse.FileType('r'), help='file to parse packages name to download')
     group.add_argument('-i', dest='index', action='store_true', help='package names are provided by pypi index site')
@@ -120,7 +121,7 @@ def processPackageIndex(pkg, base_url, base_save_loc):
     doc.write(save_loc + "/" + "index.html")
 
 # This function downloads package files if they are newer or of a differing size
-def processPackageFiles(pkg_name, base_url, base_save_loc):
+def processPackageFiles(pkg_name, base_url, base_save_loc, max_workers):
     web_loc = base_save_loc + "/" + "web"
 
     # Here we get the json info page for the package
@@ -131,8 +132,10 @@ def processPackageFiles(pkg_name, base_url, base_save_loc):
         if len(json_page['releases']) > 0:
             for release in json_page['releases']:
                 if len(json_page['releases'][release]) > 0:
-                    for file in json_page['releases'][release]:
-                        downloadReleaseFile(file, web_loc)
+                    files = json_page['releases'][release]
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                        executor.map(downloadReleaseFile, files, itertools.repeat(web_loc))
+                        #downloadReleaseFile(file, web_loc)
 
 ######################################### Start of main processing
 
@@ -145,6 +148,7 @@ if __name__ == "__main__":
     repo_name = args.repo_name
     repo_url = args.repo_url
     mirror_repo_loc = mirror_tld + "/" + repo_name
+    thread_count = args.thread_count
 
     if args.config_file:
         logging.info("Grabbing list of packages from file: " + args.config_file.name)
@@ -159,4 +163,4 @@ if __name__ == "__main__":
     for p in pkgs:
         logging.info("Processing package " + p + "...")
         processPackageIndex(p, repo_url, mirror_repo_loc)
-        processPackageFiles(p, repo_url, mirror_repo_loc)
+        processPackageFiles(p, repo_url, mirror_repo_loc, thread_count)
