@@ -4,23 +4,32 @@ import requests, re, argparse, os, datetime, shutil, logging, sys
 
 # This function grabs a list of all the packages at the pypi index site specified by 'baseurl'
 def getPackageListFromIndex(baseurl):
-    page = requests.get(baseurl + "/simple/")
-    tree = html.fromstring(page.content)
-    pkgs = tree.xpath("//@href")
+    try:
+        page = requests.get(baseurl + "/simple/")
+        tree = html.fromstring(page.content)
+        pkgs = tree.xpath("//@href")
 
-    newpkgs = []
+        newpkgs = []
 
-    for p in pkgs:
-        # Here we look for the simple package name for the package item
-        # returned in package list
-        pkg_name_match = re.search(r"simple/(.*)/", p, re.IGNORECASE)
-        if pkg_name_match:
-            tmp = pkg_name_match.group(1)
-            newpkgs.append(tmp)
-        else:
-            newpkgs.append(p)
+        for p in pkgs:
+            # Here we look for the simple package name for the package item
+            # returned in package list
+            pkg_name_match = re.search(r"simple/(.*)/", p, re.IGNORECASE)
+            if pkg_name_match:
+                tmp = pkg_name_match.group(1)
+                newpkgs.append(tmp)
+            else:
+                newpkgs.append(p)
 
-    return newpkgs
+        return newpkgs
+    except ConnectionError as err:
+        logging.warn("Connection error while getting package list: {0}".format(err))
+    except HTTPError as err:
+        logging.warn("HTTP unsuccessful response while getting package list: {0}".format(err))
+    except Timeout as err:
+        logging.warn("Timeout error while getting package list: {0}".format(err))
+    except TooManyRedirects as err:
+        logging.warn("TooManyRedirects error while getting package list: {0}".format(err))
 
 
 # This function parses the command line arguments
@@ -44,79 +53,107 @@ def parseCommandLine():
 def processPackageIndex(pkg, base_url, base_save_loc):
     simple_loc = base_save_loc + "/" + "web" + "/" + "simple"
 
-    page = requests.get(base_url + "/simple/" + pkg)
-    tree = html.fromstring(page.content)
+    try:
+        page = requests.get(base_url + "/simple/" + pkg)
+        page.raise_for_status()
+        tree = html.fromstring(page.content)
 
-    # Here we get the list of urls to the package file versions to make into a relative
-    # path to save as our localized index.html for that package
-    a_tags = tree.xpath("//a")
-    for a in a_tags:
-        orig_url = a.get("href")
-        new_url = re.sub(r"http\w*://.*/packages", "../../packages", orig_url, 1, re.IGNORECASE)
-        a.set("href", new_url)
+        # Here we get the list of urls to the package file versions to make into a relative
+        # path to save as our localized index.html for that package
+        a_tags = tree.xpath("//a")
+        for a in a_tags:
+            orig_url = a.get("href")
+            new_url = re.sub(r"http\w*://.*/packages", "../../packages", orig_url, 1, re.IGNORECASE)
+            a.set("href", new_url)
 
-    # Here we write out the localized package index.html
-    doc = etree.ElementTree(tree)
-    save_loc = simple_loc + "/" + pkg
-    os.makedirs(save_loc, exist_ok=True)
-    doc.write(save_loc + "/" + "index.html")
+        # Here we write out the localized package index.html
+        doc = etree.ElementTree(tree)
+        save_loc = simple_loc + "/" + pkg
+        os.makedirs(save_loc, exist_ok=True)
+        doc.write(save_loc + "/" + "index.html")
+    except ConnectionError as err:
+        logging.warn("Connection error while getting index for package " + pkg + ": {0}".format(err))
+    except HTTPError as err:
+        logging.warn("HTTP unsuccessful response while getting index for package " + pkg + ": {0}".format(err))
+    except Timeout as err:
+        logging.warn("Timeout error while getting index for package " + pkg + ": {0}".format(err))
+    except TooManyRedirects as err:
+        logging.warn("TooManyRedirects error while getting index for package " + pkg + ": {0}".format(err))
 
 # This function downloads package files if they are newer or of a differing size
 def processPackageFiles(pkg_name, base_url, base_save_loc):
     web_loc = base_save_loc + "/" + "web"
 
     # Here we get the json info page for the package
-    page = requests.get(base_url + "/pypi/" + pkg_name + "/json")
-    if page.status_code == 200:
-        json_page = page.json()
+    try:
+        page = requests.get(base_url + "/pypi/" + pkg_name + "/json")
+        if page.status_code == 200:
+            json_page = page.json()
 
-        if len(json_page['releases']) > 0:
-            for release in json_page['releases']:
-                if len(json_page['releases'][release]) > 0:
-                    for file in json_page['releases'][release]:
-                        # Here we parse out some information from the returned json object for later use
-                        file_name = file['filename']
-                        file_url = file['url']
-                        file_url_md5 = file['digests']['md5']
-                        file_url_size = file['size']  # In bytes
-                        file_url_time = file['upload_time']  # time format returned: 2019-04-16T20:36:54
-                        file_url_time_epoch = int(datetime.datetime.strptime(file_url_time, '%Y-%m-%dT%H:%M:%S').timestamp())  # Epoch time version of file_url_time
+            if len(json_page['releases']) > 0:
+                for release in json_page['releases']:
+                    if len(json_page['releases'][release]) > 0:
+                        for file in json_page['releases'][release]:
+                            # Here we parse out some information from the returned json object for later use
+                            file_name = file['filename']
+                            file_url = file['url']
+                            file_url_md5 = file['digests']['md5']
+                            file_url_size = file['size']  # In bytes
+                            file_url_time = file['upload_time']  # time format returned: 2019-04-16T20:36:54
+                            file_url_time_epoch = int(datetime.datetime.strptime(file_url_time, '%Y-%m-%dT%H:%M:%S').timestamp())  # Epoch time version of file_url_time
 
-                        # Here we need to parse out the directory structure for locally storing the file
-                        parsed_dir_match = re.search(r"http[s]{0,1}://[^/]+/(.*)/", file_url, re.IGNORECASE)
-                        if parsed_dir_match:
-                            parsed_dir = parsed_dir_match.group(1)
-                            file_loc = web_loc + "/" + parsed_dir + "/" + file_name
-                            file_dir = web_loc + "/" + parsed_dir
-                            # Here we first get the stats of a possible already existing file
-                            download_file = False
-                            if os.path.exists(file_loc):
-                                file_info = os.stat(file_loc)
-                                file_size = file_info.st_size
-                                file_mod_time = file_info.st_mtime
+                            # Here we need to parse out the directory structure for locally storing the file
+                            parsed_dir_match = re.search(r"http[s]{0,1}://[^/]+/(.*)/", file_url, re.IGNORECASE)
+                            if parsed_dir_match:
+                                parsed_dir = parsed_dir_match.group(1)
+                                file_loc = web_loc + "/" + parsed_dir + "/" + file_name
+                                file_dir = web_loc + "/" + parsed_dir
+                                # Here we first get the stats of a possible already existing file
+                                download_file = False
+                                if os.path.exists(file_loc):
+                                    file_info = os.stat(file_loc)
+                                    file_size = file_info.st_size
+                                    file_mod_time = file_info.st_mtime
 
-                                # Here we check if the file should be overwritten
-                                if file_url_size != file_size or file_url_time_epoch > file_mod_time:
+                                    # Here we check if the file should be overwritten
+                                    if file_url_size != file_size or file_url_time_epoch > file_mod_time:
+                                        download_file = True
+
+                                else:
                                     download_file = True
 
-                            else:
-                                download_file = True
+                                if download_file:
+                                    # Here we download the file
+                                    #print("[INFO]: Downloading " + file_name + "...")
+                                    try:
+                                        logging.info("Downloading " + file_name + "...")
+                                        os.makedirs(file_dir, exist_ok=True)  # create (if not existing) path to file to be saved
+                                        package_file_req = requests.get(file_url, stream=True)
+                                        with open(file_loc, 'wb') as outfile:
+                                            shutil.copyfileobj(package_file_req.raw, outfile)
+                                        os.utime(file_loc, (file_url_time_epoch, file_url_time_epoch))
+                                    except ConnectionError as err:
+                                        logging.warn("Connection error while getting package file " + file_name + ": {0}".format(err))
+                                    except HTTPError as err:
+                                        logging.warn("HTTP unsuccessful response while getting package file " + file_name + ": {0}".format(err))
+                                    except Timeout as err:
+                                        logging.warn("Timeout error while getting package file " + file_name + ": {0}".format(err))
+                                    except TooManyRedirects as err:
+                                        logging.warn("TooManyRedirects error while getting package file " + file_name + ": {0}".format(err))
+                                else:
+                                    logging.info(file_name + " exists, skipping...")
 
-                            if download_file:
-                                # Here we download the file
-                                #print("[INFO]: Downloading " + file_name + "...")
-                                logging.info("Downloading " + file_name + "...")
-                                os.makedirs(file_dir, exist_ok=True)  # create (if not existing) path to file to be saved
-                                package_file_req = requests.get(file_url, stream=True)
-                                with open(file_loc, 'wb') as outfile:
-                                    shutil.copyfileobj(package_file_req.raw, outfile)
-                                os.utime(file_loc, (file_url_time_epoch, file_url_time_epoch))
                             else:
-                                logging.info(file_name + " exists, skipping...")
-
-                        else:
-                            logging.warn("No package file url matched, skipping...")
-                            continue
+                                logging.warn("No package file url matched, skipping...")
+                                continue
+    except ConnectionError as err:
+        logging.warn("Connection error while getting json info for package " + pkg_name + ": {0}".format(err))
+    except HTTPError as err:
+        logging.warn("HTTP unsuccessful response while getting json info for package " + pkg_name + ": {0}".format(err))
+    except Timeout as err:
+        logging.warn("Timeout error while getting json info for package " + pkg_name + ": {0}".format(err))
+    except TooManyRedirects as err:
+        logging.warn("TooManyRedirects error while getting json info for package " + pkg_name + ": {0}".format(err))                            
 
 
 ######################################### Start of main processing
