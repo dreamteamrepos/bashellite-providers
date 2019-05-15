@@ -9,16 +9,33 @@ import logging
 import sys
 import concurrent.futures
 import itertools
+import threading
+import functools
 
+class DownloadErrorCounter():
+    """ Class for tracking download errors in a thread-safe way """
+    def __init__(self):
+        self.error_count = 0
+        self.lock = threading.Lock()
+
+    def update_counter(self):
+        with self.lock:
+            self.error_count += 1
+
+    def get_counter(self):
+        return self.error_count
+    
 
 # This function grabs a list of all the packages at the pypi index site specified by 'baseurl'
 def getPackageListFromIndex(baseurl):
+    newpkgs = []
+    retpkgs = []
+
     try:
         page = requests.get(baseurl + "/simple/")
+        page.raise_for_status()
         tree = html.fromstring(page.content)
         pkgs = tree.xpath("//@href")
-
-        newpkgs = []
 
         for p in pkgs:
             # Here we look for the simple package name for the package item
@@ -29,17 +46,21 @@ def getPackageListFromIndex(baseurl):
                 newpkgs.append(tmp)
             else:
                 newpkgs.append(p)
-
-        return newpkgs
-    except ConnectionError as err:
+    except requests.ConnectionError as err:
         logging.warn("Connection error while getting package list: {0}".format(err))
-    except HTTPError as err:
+    except requests.HTTPError as err:
         logging.warn("HTTP unsuccessful response while getting package list: {0}".format(err))
-    except Timeout as err:
+    except requests.Timeout as err:
         logging.warn("Timeout error while getting package list: {0}".format(err))
-    except TooManyRedirects as err:
+    except requests.TooManyRedirects as err:
         logging.warn("TooManyRedirects error while getting package list: {0}".format(err))
+    except Exception as err:
+        logging.warn("Unknown Error: {}".format(err))
+    else:
+        retpkgs = newpkgs
 
+    return retpkgs
+        
 
 # This function parses the command line arguments
 def parseCommandLine():
@@ -53,14 +74,16 @@ def parseCommandLine():
     parser.add_argument('-t', dest='thread_count', type=int, default=5, help='Number of threads to use for downloading files')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-c', dest='config_file', type=argparse.FileType('r'), help='file to parse packages name to download')
-    group.add_argument('-i', dest='index', action='store_true', help='package names are provided by pypi index site')
+    group.add_argument('-i', dest='index', action='store_true', help='pypi index site to get packages from')
+    group.add_argument('-p', dest='package_name', help='name of package to install')
 
     args = parser.parse_args()
 
     return args
 
+
 # This function downloads an a file given a dictionary of file information from pypi.org
-def downloadReleaseFile(file_download_info, base_save_loc):
+def downloadReleaseFile(file_download_info, base_save_loc, download_error_counter):
     web_loc = base_save_loc
     file = file_download_info
 
@@ -99,30 +122,41 @@ def downloadReleaseFile(file_download_info, base_save_loc):
                 logging.info("Downloading " + file_name + "...")
                 os.makedirs(file_dir, exist_ok=True)  # create (if not existing) path to file to be saved
                 package_file_req = requests.get(file_url, stream=True)
+                package_file_req.raise_for_status()
                 with open(file_loc, 'wb') as outfile:
                     shutil.copyfileobj(package_file_req.raw, outfile)
                 os.utime(file_loc, (file_url_time_epoch, file_url_time_epoch))
-            except ConnectionError as err:
+            except requests.ConnectionError as err:
                 logging.warn("Connection error while getting package file " + file_name + ": {0}".format(err))
-            except HTTPError as err:
+                download_error_counter.update_counter()
+            except requests.HTTPError as err:
                 logging.warn("HTTP unsuccessful response while getting package file " + file_name + ": {0}".format(err))
-            except Timeout as err:
+                download_error_counter.update_counter()
+            except requests.Timeout as err:
                 logging.warn("Timeout error while getting package file " + file_name + ": {0}".format(err))
-            except TooManyRedirects as err:
+                download_error_counter.update_counter()
+            except requests.TooManyRedirects as err:
                 logging.warn("TooManyRedirects error while getting package file " + file_name + ": {0}".format(err))
+                download_error_counter.update_counter()
+            except Exception as err:
+                logging.warn("Unknown Error: {}".format(err))
+                download_error_counter.update_counter()
         else:
             logging.info(file_name + " exists, skipping...")
 
     else:
         logging.warn("No package file url matched, skipping...")
+        download_error_counter.update_counter()
 
 
 # This function parses the package index file and writes it with relative path for the package files
 def processPackageIndex(pkg, base_url, base_save_loc):
     simple_loc = base_save_loc + "/" + "web" + "/" + "simple"
+    error_found = True
 
     try:
         page = requests.get(base_url + "/simple/" + pkg)
+        page.raise_for_status()
         tree = html.fromstring(page.content)
 
         # Here we get the list of urls to the package file versions to make into a relative
@@ -138,22 +172,34 @@ def processPackageIndex(pkg, base_url, base_save_loc):
         save_loc = simple_loc + "/" + pkg
         os.makedirs(save_loc, exist_ok=True)
         doc.write(save_loc + "/" + "index.html")
-    except ConnectionError as err:
+    except requests.ConnectionError as err:
         logging.warn("Connection error while getting index for package " + pkg + ": {0}".format(err))
-    except HTTPError as err:
+    except requests.HTTPError as err:
         logging.warn("HTTP unsuccessful response while getting index for package " + pkg + ": {0}".format(err))
-    except Timeout as err:
+    except requests.Timeout as err:
         logging.warn("Timeout error while getting index for package " + pkg + ": {0}".format(err))
-    except TooManyRedirects as err:
+    except requests.TooManyRedirects as err:
         logging.warn("TooManyRedirects error while getting index for package " + pkg + ": {0}".format(err))
+    except Exception as err:
+        logging.warn("Unknown Error: {}".format(err))
+    else:
+        error_found = False
+
+    return error_found
+
 
 # This function downloads package files if they are newer or of a differing size
-def processPackageFiles(pkg_name, base_url, base_save_loc, max_workers):
+def processPackageFiles(pkg_name, base_url, base_save_loc, thread_count):
     web_loc = base_save_loc + "/" + "web"
+    error_found = False
+    error_count = 0
+    download_counter = DownloadErrorCounter()
+    partialed_download_release_file = functools.partial(downloadReleaseFile, base_save_loc=web_loc, download_error_counter=download_counter)
 
     # Here we get the json info page for the package
     try:
         page = requests.get(base_url + "/pypi/" + pkg_name + "/json")
+        page.raise_for_status()
         if page.status_code == 200:
             json_page = page.json()
 
@@ -161,17 +207,27 @@ def processPackageFiles(pkg_name, base_url, base_save_loc, max_workers):
                 for release in json_page['releases']:
                     if len(json_page['releases'][release]) > 0:
                         files = json_page['releases'][release]
-                        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                            executor.map(downloadReleaseFile, files, itertools.repeat(web_loc))
-                            
-    except ConnectionError as err:
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=thread_count) as executor:
+                            executor.map(partialed_download_release_file, files)
+    except requests.ConnectionError as err:
         logging.warn("Connection error while getting json info for package " + pkg_name + ": {0}".format(err))
-    except HTTPError as err:
+        error_count += 1
+    except requests.HTTPError as err:
         logging.warn("HTTP unsuccessful response while getting json info for package " + pkg_name + ": {0}".format(err))
-    except Timeout as err:
+        error_count += 1
+    except requests.Timeout as err:
         logging.warn("Timeout error while getting json info for package " + pkg_name + ": {0}".format(err))
-    except TooManyRedirects as err:
+        error_count += 1
+    except requests.TooManyRedirects as err:
         logging.warn("TooManyRedirects error while getting json info for package " + pkg_name + ": {0}".format(err))
+        error_count += 1
+    except Exception as err:
+        logging.warn("Unknown Error: {}".format(err))
+        error_count += 1
+
+    if error_count > 0 or download_counter.get_counter() > 0:
+        error_found = True
+    return error_found
 
 ######################################### Start of main processing
 
@@ -192,11 +248,22 @@ if __name__ == "__main__":
     elif args.index:
         logging.info("Grabbing list of packages from pypi index: " + repo_url)
         pkgs = getPackageListFromIndex(repo_url)
+    elif args.package_name:
+        logging.info("Grabbing package name from command line: " + args.package_name)
+        pkgs = []
+        pkgs.append(args.package_name)
     else:
         logging.info("Grabbing list of packages from stdin...")
         pkgs = sys.stdin.read().split()
 
     for p in pkgs:
         logging.info("Processing package " + p + "...")
-        processPackageIndex(p, repo_url, mirror_repo_loc)
-        processPackageFiles(p, repo_url, mirror_repo_loc, thread_count)
+        err = processPackageIndex(p, repo_url, mirror_repo_loc)
+        if err:
+            logging.warn("Failed to process package " + p + " due to error while getting package information")
+        else:
+            err2 = processPackageFiles(p, repo_url, mirror_repo_loc, thread_count)
+            if err2:
+                logging.warn("Error while downloading files for package: " + p)
+            else:
+                logging.info("Successful processing of package {}".format(p))
