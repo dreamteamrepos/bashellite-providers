@@ -4,12 +4,14 @@ import requests, re, argparse, os, datetime, shutil, logging, sys
 
 # This function grabs a list of all the packages at the pypi index site specified by 'baseurl'
 def getPackageListFromIndex(baseurl):
+    newpkgs = []
+    retpkgs = []
+
     try:
         page = requests.get(baseurl + "/simple/")
+        page.raise_for_status()
         tree = html.fromstring(page.content)
         pkgs = tree.xpath("//@href")
-
-        newpkgs = []
 
         for p in pkgs:
             # Here we look for the simple package name for the package item
@@ -22,14 +24,20 @@ def getPackageListFromIndex(baseurl):
                 newpkgs.append(p)
 
         return newpkgs
-    except ConnectionError as err:
+    except requests.ConnectionError as err:
         logging.warn("Connection error while getting package list: {0}".format(err))
-    except HTTPError as err:
+    except requests.HTTPError as err:
         logging.warn("HTTP unsuccessful response while getting package list: {0}".format(err))
-    except Timeout as err:
+    except requests.Timeout as err:
         logging.warn("Timeout error while getting package list: {0}".format(err))
-    except TooManyRedirects as err:
+    except requests.TooManyRedirects as err:
         logging.warn("TooManyRedirects error while getting package list: {0}".format(err))
+    except Exception as err:
+        logging.warn("Unknown Error: {}".format(err))
+    else:
+        retpkgs = newpkgs
+
+    return retpkgs
 
 
 # This function parses the command line arguments
@@ -44,10 +52,12 @@ def parseCommandLine():
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-c', dest='config_file', type=argparse.FileType('r'), help='file to parse packages name to download')
     group.add_argument('-i', dest='index', action='store_true', help='package names are provided by pypi index site')
+    group.add_argument('-p', dest='package_name', help='name of package to install')
 
     args = parser.parse_args()
 
     return args
+
 
 # This function parses the package index file and writes it with relative path for the package files
 def processPackageIndex(pkg, base_url, base_save_loc):
@@ -71,22 +81,27 @@ def processPackageIndex(pkg, base_url, base_save_loc):
         save_loc = simple_loc + "/" + pkg
         os.makedirs(save_loc, exist_ok=True)
         doc.write(save_loc + "/" + "index.html")
-    except ConnectionError as err:
+    except requests.ConnectionError as err:
         logging.warn("Connection error while getting index for package " + pkg + ": {0}".format(err))
-    except HTTPError as err:
+    except requests.HTTPError as err:
         logging.warn("HTTP unsuccessful response while getting index for package " + pkg + ": {0}".format(err))
-    except Timeout as err:
+    except requests.Timeout as err:
         logging.warn("Timeout error while getting index for package " + pkg + ": {0}".format(err))
-    except TooManyRedirects as err:
+    except requests.TooManyRedirects as err:
         logging.warn("TooManyRedirects error while getting index for package " + pkg + ": {0}".format(err))
+    except Exception as err:
+        logging.warn("Unknown Error: {}".format(err))
+
 
 # This function downloads package files if they are newer or of a differing size
 def processPackageFiles(pkg_name, base_url, base_save_loc):
     web_loc = base_save_loc + "/" + "web"
+    error_found = True
 
     # Here we get the json info page for the package
     try:
         page = requests.get(base_url + "/pypi/" + pkg_name + "/json")
+        page.raise_for_status()
         if page.status_code == 200:
             json_page = page.json()
 
@@ -129,31 +144,45 @@ def processPackageFiles(pkg_name, base_url, base_save_loc):
                                         logging.info("Downloading " + file_name + "...")
                                         os.makedirs(file_dir, exist_ok=True)  # create (if not existing) path to file to be saved
                                         package_file_req = requests.get(file_url, stream=True)
+                                        package_file_req.raise_for_status()
                                         with open(file_loc, 'wb') as outfile:
                                             shutil.copyfileobj(package_file_req.raw, outfile)
                                         os.utime(file_loc, (file_url_time_epoch, file_url_time_epoch))
-                                    except ConnectionError as err:
-                                        logging.warn("Connection error while getting package file " + file_name + ": {0}".format(err))
-                                    except HTTPError as err:
-                                        logging.warn("HTTP unsuccessful response while getting package file " + file_name + ": {0}".format(err))
-                                    except Timeout as err:
-                                        logging.warn("Timeout error while getting package file " + file_name + ": {0}".format(err))
-                                    except TooManyRedirects as err:
-                                        logging.warn("TooManyRedirects error while getting package file " + file_name + ": {0}".format(err))
+                                    except requests.ConnectionError as err:
+                                        #logging.warn("Connection error while getting package file " + file_name + ": {0}".format(err))
+                                        raise
+                                    except requests.HTTPError as err:
+                                        #logging.warn("HTTP unsuccessful response while getting package file " + file_name + ": {0}".format(err))
+                                        raise
+                                    except requests.Timeout as err:
+                                        #logging.warn("Timeout error while getting package file " + file_name + ": {0}".format(err))
+                                        raise
+                                    except requests.TooManyRedirects as err:
+                                        #logging.warn("TooManyRedirects error while getting package file " + file_name + ": {0}".format(err))
+                                        raise
+                                    except Exception as err:
+                                        #logging.warn("Unknown Error: {}".format(err))
+                                        raise
                                 else:
                                     logging.info(file_name + " exists, skipping...")
 
                             else:
                                 logging.warn("No package file url matched, skipping...")
                                 continue
-    except ConnectionError as err:
+    except requests.ConnectionError as err:
         logging.warn("Connection error while getting json info for package " + pkg_name + ": {0}".format(err))
-    except HTTPError as err:
+    except requests.HTTPError as err:
         logging.warn("HTTP unsuccessful response while getting json info for package " + pkg_name + ": {0}".format(err))
-    except Timeout as err:
+    except requests.Timeout as err:
         logging.warn("Timeout error while getting json info for package " + pkg_name + ": {0}".format(err))
-    except TooManyRedirects as err:
-        logging.warn("TooManyRedirects error while getting json info for package " + pkg_name + ": {0}".format(err))                            
+    except requests.TooManyRedirects as err:
+        logging.warn("TooManyRedirects error while getting json info for package " + pkg_name + ": {0}".format(err))
+    except Exception as err:
+        logging.warn("Unknown Error: {}".format(err))
+    else:
+        error_found = False
+
+    return error_found                          
 
 
 ######################################### Start of main processing
@@ -174,11 +203,22 @@ if __name__ == "__main__":
     elif args.index:
         logging.info("Grabbing list of packages from pypi index: " + repo_url)
         pkgs = getPackageListFromIndex(repo_url)
+    elif args.package_name:
+        logging.info("Grabbing package name from command line: " + args.package_name)
+        pkgs = []
+        pkgs.append(args.package_name)
     else:
         logging.info("Grabbing list of packages from stdin...")
         pkgs = sys.stdin.read().split()
 
     for p in pkgs:
         logging.info("Processing package " + p + "...")
-        processPackageIndex(p, repo_url, mirror_repo_loc)
-        processPackageFiles(p, repo_url, mirror_repo_loc)
+        err = processPackageIndex(p, repo_url, mirror_repo_loc)
+        if err:
+            logging.warn("Failed to process package " + p + " due to error while getting package information")
+        else:
+            err2 = processPackageFiles(p, repo_url, mirror_repo_loc)
+            if err2:
+                logging.warn("Error while downloading files for package: " + p)
+            else:
+                logging.info("Successful processing of package {}".format(p))
