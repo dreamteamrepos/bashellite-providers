@@ -148,21 +148,35 @@ def downloadReleaseFile(file_download_info, base_save_loc, download_error_counte
         logging.warn("No package file url matched, skipping...")
         download_error_counter.update_counter()
 
+
 # This function checks the package serial number and compares it to the local serial number to determine if the package should be downloaded
 def shouldDownload(pkg, base_url, base_file_loc):
     simple_loc = base_file_loc + "/" + "web" + "/" + "simple"
     should_download = False
     pkg_index_loc = simple_loc + "/" + pkg + "/index.html"
+    index_serial = 0
+    local_serial = 0
 
     try:
+        # First find the local serial number stored for the package, if it exists
         if os.path.exists(pkg_index_loc):
             tree = html.parse(pkg_index_loc)
 
             # Here parse for the serial number in the comments of the page
             comments = tree.xpath("//comment()")
             for c in comments:
-                print(c)
-                should_download = True
+                local_serial_match = re.search(r"SERIAL ([0-9]*)", c.text, re.IGNORECASE)
+                if local_serial_match:
+                    local_serial = local_serial_match.group(1)
+                    break
+            # Next we find the index site serial number for the package
+            page = requests.get(base_url + "/pypi/" + pkg + "/json")
+            page.raise_for_status()
+            if page.status_code == 200:
+                json_page = page.json()
+                index_serial = json_page['last_serial']
+                if index_serial > int(local_serial):
+                    should_download = True
         else:
             should_download = True
     except requests.ConnectionError as err:
@@ -177,6 +191,7 @@ def shouldDownload(pkg, base_url, base_file_loc):
         logging.warn("Unknown Error: {}".format(err))
     
     return should_download
+
 
 # This function parses the package index file and writes it with relative path for the package files
 def processPackageIndex(pkg, base_url, base_save_loc):
