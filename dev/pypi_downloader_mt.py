@@ -148,6 +148,35 @@ def downloadReleaseFile(file_download_info, base_save_loc, download_error_counte
         logging.warn("No package file url matched, skipping...")
         download_error_counter.update_counter()
 
+# This function checks the package serial number and compares it to the local serial number to determine if the package should be downloaded
+def shouldDownload(pkg, base_url, base_file_loc):
+    simple_loc = base_file_loc + "/" + "web" + "/" + "simple"
+    should_download = False
+    pkg_index_loc = simple_loc + "/" + pkg + "/index.html"
+
+    try:
+        if os.path.exists(pkg_index_loc):
+            tree = html.parse(pkg_index_loc)
+
+            # Here parse for the serial number in the comments of the page
+            comments = tree.xpath("//comment()")
+            for c in comments:
+                print(c)
+                should_download = True
+        else:
+            should_download = True
+    except requests.ConnectionError as err:
+        logging.warn("Connection error while getting index for package " + pkg + ": {0}".format(err))
+    except requests.HTTPError as err:
+        logging.warn("HTTP unsuccessful response while getting index for package " + pkg + ": {0}".format(err))
+    except requests.Timeout as err:
+        logging.warn("Timeout error while getting index for package " + pkg + ": {0}".format(err))
+    except requests.TooManyRedirects as err:
+        logging.warn("TooManyRedirects error while getting index for package " + pkg + ": {0}".format(err))
+    except Exception as err:
+        logging.warn("Unknown Error: {}".format(err))
+    
+    return should_download
 
 # This function parses the package index file and writes it with relative path for the package files
 def processPackageIndex(pkg, base_url, base_save_loc):
@@ -258,12 +287,13 @@ if __name__ == "__main__":
 
     for p in pkgs:
         logging.info("Processing package " + p + "...")
-        err = processPackageIndex(p, repo_url, mirror_repo_loc)
-        if err:
-            logging.warn("Failed to process package " + p + " due to error while getting package information")
-        else:
-            err2 = processPackageFiles(p, repo_url, mirror_repo_loc, thread_count)
-            if err2:
-                logging.warn("Error while downloading files for package: " + p)
+        if shouldDownload(p, repo_url, mirror_repo_loc):
+            err = processPackageIndex(p, repo_url, mirror_repo_loc)
+            if err:
+                logging.warn("Failed to process package " + p + " due to error while getting package information")
             else:
-                logging.info("Successful processing of package {}".format(p))
+                err2 = processPackageFiles(p, repo_url, mirror_repo_loc, thread_count)
+                if err2:
+                    logging.warn("Error while downloading files for package: " + p)
+                else:
+                    logging.info("Successful processing of package {}".format(p))
