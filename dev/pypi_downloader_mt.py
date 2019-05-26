@@ -303,12 +303,19 @@ if __name__ == "__main__":
     for p in pkgs:
         logging.info("Processing package " + p + "...")
         if shouldDownload(p, repo_url, mirror_repo_loc):
-            err = processPackageIndex(p, repo_url, mirror_repo_loc)
+            err = processPackageFiles(p, repo_url, mirror_repo_loc, thread_count)
             if err:
-                logging.warn("Failed to process package " + p + " due to error while getting package information")
+                logging.warn("Error while downloading files for package: " + p)
             else:
-                err2 = processPackageFiles(p, repo_url, mirror_repo_loc, thread_count)
+                err2 = processPackageIndex(p, repo_url, mirror_repo_loc)
                 if err2:
-                    logging.warn("Error while downloading files for package: " + p)
+                    logging.warn("Error while updating package  " + p + " index file")
                 else:
                     logging.info("Successful processing of package {}".format(p))
+
+
+
+
+
+
+            
