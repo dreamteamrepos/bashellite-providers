@@ -59,6 +59,50 @@ def parseCommandLine():
     return args
 
 
+# This function checks the package serial number and compares it to the local serial number to determine if the package should be downloaded
+def shouldDownload(pkg, base_url, base_file_loc):
+    simple_loc = base_file_loc + "/" + "web" + "/" + "simple"
+    should_download = False
+    pkg_index_loc = simple_loc + "/" + pkg + "/index.html"
+    index_serial = 0
+    local_serial = 0
+
+    try:
+        # First find the local serial number stored for the package, if it exists
+        if os.path.exists(pkg_index_loc):
+            tree = html.parse(pkg_index_loc)
+
+            # Here parse for the serial number in the comments of the page
+            comments = tree.xpath("//comment()")
+            for c in comments:
+                local_serial_match = re.search(r"SERIAL ([0-9]*)", c.text, re.IGNORECASE)
+                if local_serial_match:
+                    local_serial = local_serial_match.group(1)
+                    break
+            # Next we find the index site serial number for the package
+            page = requests.get(base_url + "/pypi/" + pkg + "/json")
+            page.raise_for_status()
+            if page.status_code == 200:
+                json_page = page.json()
+                index_serial = json_page['last_serial']
+                if index_serial > int(local_serial):
+                    should_download = True
+        else:
+            should_download = True
+    except requests.ConnectionError as err:
+        logging.warn("Connection error while getting index for package " + pkg + ": {0}".format(err))
+    except requests.HTTPError as err:
+        logging.warn("HTTP unsuccessful response while getting index for package " + pkg + ": {0}".format(err))
+    except requests.Timeout as err:
+        logging.warn("Timeout error while getting index for package " + pkg + ": {0}".format(err))
+    except requests.TooManyRedirects as err:
+        logging.warn("TooManyRedirects error while getting index for package " + pkg + ": {0}".format(err))
+    except Exception as err:
+        logging.warn("Unknown Error: {}".format(err))
+    
+    return should_download
+
+
 # This function parses the package index file and writes it with relative path for the package files
 def processPackageIndex(pkg, base_url, base_save_loc):
     simple_loc = base_save_loc + "/" + "web" + "/" + "simple"
@@ -213,12 +257,13 @@ if __name__ == "__main__":
 
     for p in pkgs:
         logging.info("Processing package " + p + "...")
-        err = processPackageIndex(p, repo_url, mirror_repo_loc)
-        if err:
-            logging.warn("Failed to process package " + p + " due to error while getting package information")
-        else:
-            err2 = processPackageFiles(p, repo_url, mirror_repo_loc)
-            if err2:
+        if shouldDownload(p, repo_url, mirror_repo_loc):
+            err = processPackageFiles(p, repo_url, mirror_repo_loc)
+            if err:
                 logging.warn("Error while downloading files for package: " + p)
             else:
-                logging.info("Successful processing of package {}".format(p))
+                err2 = processPackageIndex(p, repo_url, mirror_repo_loc)
+                if err2:
+                    logging.warn("Error while updating package  " + p + " index file")
+                else:
+                    logging.info("Successful processing of package {}".format(p))
