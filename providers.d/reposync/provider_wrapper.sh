@@ -16,9 +16,14 @@ bashelliteProviderWrapperReposync() {
         # newstr=${oldstr#http*//*/}
         # Parse the directory structure from the baseurl
         local save_dir=${repo_base#http*//*/}
-        reposync -c ${config_file} -r ${repo_id} -p ${save_loc}/${save_dir} --norepopath -m
+        reposync -c ${config_file} -r ${repo_id} -p ${save_loc}/${save_dir} --norepopath --downloadcomps --download-metadata
         local return_val="${?}"
         if [[ "${return_val}" == "0" ]]; then
+          if [[ -s ${save_loc}/${save_dir}/comps.xml ]]; then
+            createrepo --update ${save_loc}/${save_dir}/ -g comps.xml
+          else
+            createrepo --update ${save_loc}/${save_dir}/
+          fi
           utilMsg INFO "$(utilTime)" "Sync of repo ${repo_id} from repo site (${_n_repo_name}) using ${_n_repo_provider} completed without error...";
         else
           utilMsg WARN "$(utilTime)" "Sync of repo ${repo_id} from repo site (${_n_repo_name}) using ${_n_repo_provider} did NOT complete without error...";
